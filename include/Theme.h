@@ -20,6 +20,7 @@ namespace Theme
     constexpr int PAGE_MARGIN = 12;
     constexpr int HEADER_HEIGHT = 36;
     constexpr int HEADER_TEXT_BASELINE = 24;
+    constexpr int HEADER_TEXT_GAP = 12;
     constexpr int FOOTER_HEIGHT = 32;
     constexpr int FOOTER_TEXT_BASELINE = 22;
     constexpr int FOOTER_TEXT_GAP = 12;

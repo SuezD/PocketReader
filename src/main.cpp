@@ -13,7 +13,7 @@ void setup()
     do {
         display.fillScreen(GxEPD_WHITE);
         drawHeader("POCKET READER", 85); // hardcoded battery percentage for now
-        drawFooter("Left Footer Text", "Right Footer Text");
+        drawFooter();
     } while (display.nextPage());
 
     display.hibernate();

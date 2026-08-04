@@ -4,86 +4,11 @@
 
 #include "Display.h"
 #include "Theme.h"
+#include "helpers/TextUtils.h"
 
 namespace
 {
     constexpr size_t TEXT_BUFFER_SIZE = 64;
-
-    uint16_t getTextWidth(const char* text)
-    {
-        int16_t x;
-        int16_t y;
-        uint16_t width;
-        uint16_t height;
-
-        display.getTextBounds(
-            text,
-            0,
-            0,
-            &x,
-            &y,
-            &width,
-            &height
-        );
-
-        return width;
-    }
-
-    void truncateToWidth(
-        const char* source,
-        char* output,
-        size_t outputSize,
-        uint16_t maximumWidth
-    ) {
-        output[0] = '\0';
-
-        if (source == nullptr || source[0] == '\0') {
-            return;
-        }
-
-        const size_t sourceLength = strlen(source);
-        size_t copiedLength = sourceLength;
-
-        if (copiedLength >= outputSize) {
-            copiedLength = outputSize - 1;
-        }
-
-        memcpy(output, source, copiedLength);
-        output[copiedLength] = '\0';
-
-        const bool wholeTextCopied =
-            copiedLength == sourceLength;
-
-        if (
-            wholeTextCopied &&
-            getTextWidth(output) <= maximumWidth
-        ) {
-            return;
-        }
-
-        constexpr char ELLIPSIS[] = "...";
-        const uint16_t ellipsisWidth =
-            getTextWidth(ELLIPSIS);
-
-        if (ellipsisWidth > maximumWidth) {
-            output[0] = '\0';
-            return;
-        }
-
-        while (
-            copiedLength > 0 &&
-            (
-                copiedLength + 3 >= outputSize ||
-                getTextWidth(output) + ellipsisWidth >
-                    maximumWidth
-            )
-        ) {
-            copiedLength--;
-            output[copiedLength] = '\0';
-        }
-
-        strcat(output, ELLIPSIS);
-    }
 }
 
 void drawFooter(
@@ -126,10 +51,10 @@ void drawFooter(
             totalAvailableWidth - Theme::FOOTER_TEXT_GAP;
 
         const uint16_t leftNaturalWidth =
-            getTextWidth(leftText);
+            getTextWidth(leftText, Theme::BODY_FONT);
 
         const uint16_t rightNaturalWidth =
-            getTextWidth(rightText);
+            getTextWidth(rightText, Theme::BODY_FONT);
 
         const uint16_t halfWidth =
             availableTextWidth / 2;
@@ -160,14 +85,16 @@ void drawFooter(
         leftText,
         leftOutput,
         sizeof(leftOutput),
-        leftMaximumWidth
+        leftMaximumWidth,
+        Theme::BODY_FONT
     );
 
     truncateToWidth(
         rightText,
         rightOutput,
         sizeof(rightOutput),
-        rightMaximumWidth
+        rightMaximumWidth,
+        Theme::BODY_FONT
     );
 
     const int textBaseline =
@@ -180,7 +107,7 @@ void drawFooter(
 
     if (rightOutput[0] != '\0') {
         const uint16_t rightTextWidth =
-            getTextWidth(rightOutput);
+            getTextWidth(rightOutput, Theme::BODY_FONT);
 
         display.setCursor(
             contentRight - rightTextWidth,
