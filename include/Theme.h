@@ -39,4 +39,6 @@ namespace Theme
     constexpr int SELECT_LIST_ITEM_GAP = 6;
     constexpr int SELECT_LIST_TEXT_BASELINE = 23;
     constexpr int SELECT_LIST_HORIZONTAL_PADDING = 8;
+    constexpr int SELECT_LIST_MARKER_WIDTH = 4;
+    constexpr int SELECT_LIST_MARKER_GAP = 8;
 }

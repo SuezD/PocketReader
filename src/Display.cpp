@@ -13,6 +13,6 @@ DisplayType display(
 
 void initDisplay()
 {
-    display.init(0, true, 2, false);
+    display.init(115200, true, 2, false);
     display.setRotation(3); // 300 × 400 portrait
 }

@@ -124,7 +124,9 @@ void drawSelectList(
 
     const uint16_t maximumTextWidth =
         rowWidth -
-        (Theme::SELECT_LIST_HORIZONTAL_PADDING * 2);
+        (Theme::SELECT_LIST_HORIZONTAL_PADDING * 2) -
+        Theme::SELECT_LIST_MARKER_WIDTH -
+        Theme::SELECT_LIST_MARKER_GAP;
 
     const int listTop =
         Theme::HEADER_HEIGHT +
@@ -169,7 +171,7 @@ void drawSelectList(
             display.fillRect(
                 contentLeft,
                 rowY,
-                rowWidth,
+                Theme::SELECT_LIST_MARKER_WIDTH,
                 Theme::SELECT_LIST_ITEM_HEIGHT,
                 Theme::TEXT_COLOR
             );
@@ -185,15 +187,13 @@ void drawSelectList(
             Theme::BODY_FONT
         );
 
-        display.setTextColor(
-            isSelected
-                ? Theme::BACKGROUND_COLOR
-                : Theme::TEXT_COLOR
-        );
+        display.setTextColor(Theme::TEXT_COLOR);
 
         display.setCursor(
             contentLeft +
-                Theme::SELECT_LIST_HORIZONTAL_PADDING,
+                Theme::SELECT_LIST_HORIZONTAL_PADDING +
+                Theme::SELECT_LIST_MARKER_WIDTH +
+                Theme::SELECT_LIST_MARKER_GAP,
             rowY +
                 Theme::SELECT_LIST_TEXT_BASELINE
         );

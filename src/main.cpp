@@ -269,14 +269,24 @@ void loop()
         if (upPressed && !downPressed)
         {
             selectTapPending = false;
-            moveMainMenuUp();
-            redrawMainMenuList();
+            const MainMenuItem previousItem =
+                getSelectedMainMenuItem();
+
+            if (moveMainMenuUp())
+            {
+                redrawMainMenuSelection(previousItem);
+            }
         }
         else if (downPressed && !upPressed)
         {
             selectTapPending = false;
-            moveMainMenuDown();
-            redrawMainMenuList();
+            const MainMenuItem previousItem =
+                getSelectedMainMenuItem();
+
+            if (moveMainMenuDown())
+            {
+                redrawMainMenuSelection(previousItem);
+            }
         }
     }
 

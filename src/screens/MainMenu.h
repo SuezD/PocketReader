@@ -12,8 +12,8 @@ enum class MainMenuItem : uint8_t
 
 void drawMainMenu(uint8_t batteryPercent);
 
-void moveMainMenuUp();
-void moveMainMenuDown();
-void redrawMainMenuList();
+bool moveMainMenuUp();
+bool moveMainMenuDown();
+void redrawMainMenuSelection(MainMenuItem previousItem);
 
 MainMenuItem getSelectedMainMenuItem();
