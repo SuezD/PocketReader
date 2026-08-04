@@ -24,4 +24,19 @@ namespace Theme
     constexpr int FOOTER_HEIGHT = 32;
     constexpr int FOOTER_TEXT_BASELINE = 22;
     constexpr int FOOTER_TEXT_GAP = 12;
+
+    constexpr int MESSAGE_LINE_HEIGHT = 24;
+    constexpr int MESSAGE_TEXT_BASELINE = 18;
+
+    constexpr int MESSAGE_OPTIONS_TOP_GAP = 20;
+    constexpr int MESSAGE_OPTION_HEIGHT = 32;
+    constexpr int MESSAGE_OPTION_GAP = 8;
+    constexpr int MESSAGE_OPTION_TEXT_BASELINE = 22;
+    constexpr int MESSAGE_OPTION_HORIZONTAL_PADDING = 8;
+
+    constexpr int SELECT_LIST_VERTICAL_PADDING = 12;
+    constexpr int SELECT_LIST_ITEM_HEIGHT = 34;
+    constexpr int SELECT_LIST_ITEM_GAP = 6;
+    constexpr int SELECT_LIST_TEXT_BASELINE = 23;
+    constexpr int SELECT_LIST_HORIZONTAL_PADDING = 8;
 }

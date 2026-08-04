@@ -3,7 +3,12 @@
 #include "BoardConfig.h"
 
 DisplayType display(
-    EpaperDriver(EPD_CS, EPD_DC, EPD_RST, EPD_BUSY)
+    EpaperDriver(
+        BoardConfig::EPD_CS,
+        BoardConfig::EPD_DC,
+        BoardConfig::EPD_RST,
+        BoardConfig::EPD_BUSY
+    )
 );
 
 void initDisplay()
