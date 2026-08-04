@@ -32,7 +32,6 @@ namespace Theme
     constexpr int MESSAGE_OPTION_HEIGHT = 32;
     constexpr int MESSAGE_OPTION_GAP = 8;
     constexpr int MESSAGE_OPTION_TEXT_BASELINE = 22;
-    constexpr int MESSAGE_OPTION_HORIZONTAL_PADDING = 8;
 
     constexpr int SELECT_LIST_VERTICAL_PADDING = 12;
     constexpr int SELECT_LIST_ITEM_HEIGHT = 34;

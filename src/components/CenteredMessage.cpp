@@ -13,38 +13,186 @@ namespace
         return text != nullptr && text[0] != '\0';
     }
 
-    void drawCenteredLine(
+    bool isInlineWhitespace(char character)
+    {
+        return character == ' ' || character == '\t';
+    }
+
+    uint8_t getMaximumCharactersPerLine(uint16_t maximumWidth)
+    {
+        const uint8_t glyphIndex =
+            'M' - Theme::BODY_FONT->first;
+        const uint8_t characterWidth =
+            Theme::BODY_FONT->glyph[glyphIndex].xAdvance;
+        uint8_t characterCount = maximumWidth / characterWidth;
+
+        if (characterCount >= TEXT_BUFFER_SIZE)
+        {
+            characterCount = TEXT_BUFFER_SIZE - 1;
+        }
+
+        return characterCount;
+    }
+
+    const char* readWrappedLine(
+        const char* source,
+        char* output,
+        uint16_t maximumWidth
+    ) {
+        output[0] = '\0';
+
+        if (source == nullptr || source[0] == '\0')
+        {
+            return source;
+        }
+
+        if (source[0] == '\n')
+        {
+            return source + 1;
+        }
+
+        while (isInlineWhitespace(source[0]))
+        {
+            source++;
+        }
+
+        const uint8_t maximumCharacters =
+            getMaximumCharactersPerLine(maximumWidth);
+        uint8_t outputLength = 0;
+        const char* position = source;
+
+        while (position[0] != '\0')
+        {
+            if (position[0] == '\n')
+            {
+                output[outputLength] = '\0';
+                return position + 1;
+            }
+
+            if (isInlineWhitespace(position[0]))
+            {
+                position++;
+                continue;
+            }
+
+            const char* wordStart = position;
+            uint8_t wordLength = 0;
+
+            while (
+                position[0] != '\0' &&
+                position[0] != '\n' &&
+                !isInlineWhitespace(position[0])
+            ) {
+                wordLength++;
+                position++;
+            }
+
+            const uint8_t separatorLength =
+                outputLength == 0 ? 0 : 1;
+
+            if (
+                outputLength > 0 &&
+                outputLength + separatorLength + wordLength >
+                    maximumCharacters
+            ) {
+                output[outputLength] = '\0';
+                return wordStart;
+            }
+
+            if (outputLength == 0 && wordLength > maximumCharacters)
+            {
+                for (
+                    uint8_t index = 0;
+                    index < maximumCharacters;
+                    index++
+                ) {
+                    output[index] = wordStart[index];
+                }
+
+                output[maximumCharacters] = '\0';
+                return wordStart + maximumCharacters;
+            }
+
+            if (separatorLength > 0)
+            {
+                output[outputLength] = ' ';
+                outputLength++;
+            }
+
+            for (uint8_t index = 0; index < wordLength; index++)
+            {
+                output[outputLength] = wordStart[index];
+                outputLength++;
+            }
+        }
+
+        output[outputLength] = '\0';
+        return position;
+    }
+
+    uint8_t countWrappedLines(
         const char* text,
-        int baseline,
+        uint16_t maximumWidth
+    ) {
+        if (!hasText(text))
+        {
+            return 0;
+        }
+
+        char output[TEXT_BUFFER_SIZE];
+        const char* position = text;
+        uint8_t lineCount = 0;
+
+        while (position[0] != '\0')
+        {
+            position = readWrappedLine(
+                position,
+                output,
+                maximumWidth
+            );
+            lineCount++;
+        }
+
+        return lineCount;
+    }
+
+    void drawCenteredWrappedText(
+        const char* text,
+        int& currentY,
         uint16_t maximumWidth
     ) {
         char output[TEXT_BUFFER_SIZE];
+        const char* position = text;
 
-        truncateToWidth(
-            text,
-            output,
-            sizeof(output),
-            maximumWidth,
-            Theme::BODY_FONT
-        );
-
-        if (output[0] == '\0')
+        while (position[0] != '\0')
         {
-            return;
+            position = readWrappedLine(
+                position,
+                output,
+                maximumWidth
+            );
+
+            if (output[0] != '\0')
+            {
+                const uint16_t textWidth = getTextWidth(
+                    output,
+                    Theme::BODY_FONT
+                );
+
+                const int textX =
+                    (display.width() - textWidth) / 2;
+
+                display.setFont(Theme::BODY_FONT);
+                display.setTextColor(Theme::TEXT_COLOR);
+                display.setCursor(
+                    textX,
+                    currentY + Theme::MESSAGE_TEXT_BASELINE
+                );
+                display.print(output);
+            }
+
+            currentY += Theme::MESSAGE_LINE_HEIGHT;
         }
-
-        const uint16_t textWidth = getTextWidth(
-            output,
-            Theme::BODY_FONT
-        );
-
-        const int textX =
-            (display.width() - textWidth) / 2;
-
-        display.setFont(Theme::BODY_FONT);
-        display.setTextColor(Theme::TEXT_COLOR);
-        display.setCursor(textX, baseline);
-        display.print(output);
     }
 }
 
@@ -74,9 +222,12 @@ void drawMessage(
     const bool hasFirstLine = hasText(firstLine);
     const bool hasSecondLine = hasText(secondLine);
 
-    const uint8_t lineCount =
-        static_cast<uint8_t>(hasFirstLine) +
-        static_cast<uint8_t>(hasSecondLine);
+    const uint8_t firstLineCount =
+        countWrappedLines(firstLine, contentWidth);
+    const uint8_t secondLineCount =
+        countWrappedLines(secondLine, contentWidth);
+
+    const uint8_t lineCount = firstLineCount + secondLineCount;
 
     int blockHeight =
         lineCount * Theme::MESSAGE_LINE_HEIGHT;
@@ -111,24 +262,20 @@ void drawMessage(
 
     if (hasFirstLine)
     {
-        drawCenteredLine(
+        drawCenteredWrappedText(
             firstLine,
-            currentY + Theme::MESSAGE_TEXT_BASELINE,
+            currentY,
             contentWidth
         );
-
-        currentY += Theme::MESSAGE_LINE_HEIGHT;
     }
 
     if (hasSecondLine)
     {
-        drawCenteredLine(
+        drawCenteredWrappedText(
             secondLine,
-            currentY + Theme::MESSAGE_TEXT_BASELINE,
+            currentY,
             contentWidth
         );
-
-        currentY += Theme::MESSAGE_LINE_HEIGHT;
     }
 
     if (optionCount == 0 || options == nullptr)
@@ -154,21 +301,20 @@ void drawMessage(
         }
     }
 
-    uint16_t optionBoxWidth =
-        widestOption +
-        (Theme::MESSAGE_OPTION_HORIZONTAL_PADDING * 2);
+    const uint16_t markerAndGapWidth =
+        Theme::SELECT_LIST_MARKER_WIDTH +
+        Theme::SELECT_LIST_MARKER_GAP;
 
-    if (optionBoxWidth > contentWidth)
-    {
-        optionBoxWidth = contentWidth;
-    }
-
-    const int optionBoxX =
-        (display.width() - optionBoxWidth) / 2;
+    const uint16_t maximumOptionTextWidth =
+        contentWidth - markerAndGapWidth;
 
     const uint16_t optionTextWidth =
-        optionBoxWidth -
-        (Theme::MESSAGE_OPTION_HORIZONTAL_PADDING * 2);
+        min(widestOption, maximumOptionTextWidth);
+
+    const int optionGroupX =
+        (display.width() -
+            (markerAndGapWidth + optionTextWidth)) /
+        2;
 
     const uint8_t safeSelectedIndex =
         selectedIndex < optionCount
@@ -180,17 +326,6 @@ void drawMessage(
         const bool isSelected =
             i == safeSelectedIndex;
 
-        if (isSelected)
-        {
-            display.fillRect(
-                optionBoxX,
-                currentY,
-                optionBoxWidth,
-                Theme::MESSAGE_OPTION_HEIGHT,
-                Theme::TEXT_COLOR
-            );
-        }
-
         char output[TEXT_BUFFER_SIZE];
 
         truncateToWidth(
@@ -201,21 +336,22 @@ void drawMessage(
             Theme::BODY_FONT
         );
 
-        const uint16_t textWidth =
-            getTextWidth(output, Theme::BODY_FONT);
-
-        const int textX =
-            (display.width() - textWidth) / 2;
+        if (isSelected)
+        {
+            display.fillRect(
+                optionGroupX,
+                currentY,
+                Theme::SELECT_LIST_MARKER_WIDTH,
+                Theme::MESSAGE_OPTION_HEIGHT,
+                Theme::TEXT_COLOR
+            );
+        }
 
         display.setFont(Theme::BODY_FONT);
-        display.setTextColor(
-            isSelected
-                ? Theme::BACKGROUND_COLOR
-                : Theme::TEXT_COLOR
-        );
+        display.setTextColor(Theme::TEXT_COLOR);
 
         display.setCursor(
-            textX,
+            optionGroupX + markerAndGapWidth,
             currentY +
                 Theme::MESSAGE_OPTION_TEXT_BASELINE
         );

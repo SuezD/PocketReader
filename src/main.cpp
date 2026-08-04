@@ -2,7 +2,9 @@
 
 #include "Display.h"
 #include "Input.h"
+#include "screens/MyBooks.h"
 #include "screens/MainMenu.h"
+#include "screens/Reader.h"
 #include "screens/Startup.h"
 
 namespace
@@ -52,13 +54,11 @@ namespace
                 break;
 
             case Page::Reader:
-                // drawReader();
-                Serial.println(F("Reader page not implemented yet"));
+                drawReader(85);
                 break;
 
             case Page::MyBooks:
-                // drawMyBooks();
-                Serial.println(F("My Books page not implemented yet"));
+                drawMyBooks(85);
                 break;
         }
     }
@@ -114,8 +114,12 @@ namespace
                 break;
 
             case Page::MyBooks:
-                // Later: open the selected book.
+            {
+                const CachedBook& book = getSelectedMyBook();
+                openReader(&book, readCachedBookText(book));
+                navigateTo(Page::Reader);
                 break;
+            }
 
             default:
                 break;
@@ -208,6 +212,54 @@ namespace
             }
         }
     }
+
+    void handleMyBooksInput(const InputState& input)
+    {
+        if (input.upPressed && !input.downPressed)
+        {
+            selectTapPending = false;
+            const uint8_t previousIndex =
+                getSelectedMyBookIndex();
+
+            if (moveMyBooksUp())
+            {
+                redrawMyBooksSelection(previousIndex);
+            }
+        }
+        else if (input.downPressed && !input.upPressed)
+        {
+            selectTapPending = false;
+            const uint8_t previousIndex =
+                getSelectedMyBookIndex();
+
+            if (moveMyBooksDown())
+            {
+                redrawMyBooksSelection(previousIndex);
+            }
+        }
+    }
+
+    void handleReaderInput(const InputState& input)
+    {
+        if (input.upPressed && !input.downPressed)
+        {
+            selectTapPending = false;
+
+            if (moveReaderPreviousPage())
+            {
+                drawReader(85);
+            }
+        }
+        else if (input.downPressed && !input.upPressed)
+        {
+            selectTapPending = false;
+
+            if (moveReaderNextPage())
+            {
+                drawReader(85);
+            }
+        }
+    }
 }
 
 void setup()
@@ -235,6 +287,16 @@ void loop()
     if (getCurrentPage() == Page::MainMenu)
     {
         handleMainMenuInput(input);
+    }
+
+    if (getCurrentPage() == Page::MyBooks)
+    {
+        handleMyBooksInput(input);
+    }
+
+    if (getCurrentPage() == Page::Reader)
+    {
+        handleReaderInput(input);
     }
 
     if (input.selectPressed)
