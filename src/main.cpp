@@ -1,219 +1,219 @@
 #include <Arduino.h>
 
 #include "Display.h"
-#include "BoardConfig.h"
-#include "screens/Startup.h"
+#include "Input.h"
 #include "screens/MainMenu.h"
+#include "screens/Startup.h"
 
-enum class Page
+namespace
 {
-    Startup,
-    MainMenu,
-    Reader,
-    MyBooks
-};
-
-constexpr uint8_t PAGE_STACK_CAPACITY = 8;
-
-Page pageStack[PAGE_STACK_CAPACITY] = {
-    Page::Startup
-};
-
-uint8_t pageStackSize = 1;
-
-Page getCurrentPage()
-{
-    return pageStack[pageStackSize - 1];
-}
-
-constexpr unsigned long DEBOUNCE_MS = 30;
-
-struct Button
-{
-    uint8_t pin;
-    bool stableState;
-    bool lastReading;
-    unsigned long lastChangeTime;
-};
-
-Button previousButton = {
-    BoardConfig::PREVIOUS_BUTTON_PIN,
-    HIGH,
-    HIGH,
-    0
-};
-
-Button nextButton = {
-    BoardConfig::NEXT_BUTTON_PIN,
-    HIGH,
-    HIGH,
-    0
-};
-
-Button selectButton = {
-    BoardConfig::SELECT_BUTTON_PIN,
-    HIGH,
-    HIGH,
-    0
-};
-
-bool startupReady = false;
-
-bool wasPressed(Button& button)
-{
-    const bool reading = digitalRead(button.pin);
-    const unsigned long now = millis();
-
-    if (reading != button.lastReading)
+    enum class Page
     {
-        button.lastReading = reading;
-        button.lastChangeTime = now;
+        Startup,
+        MainMenu,
+        Reader,
+        MyBooks
+    };
+
+    constexpr uint8_t PAGE_STACK_CAPACITY = 8;
+    constexpr unsigned long DOUBLE_TAP_MS = 350;
+
+    Page pageStack[PAGE_STACK_CAPACITY] = {
+        Page::Startup
+    };
+
+    uint8_t pageStackSize = 1;
+    bool startupReady = false;
+    bool selectTapPending = false;
+    unsigned long firstSelectTapTime = 0;
+
+    Page getCurrentPage()
+    {
+        return pageStack[pageStackSize - 1];
     }
 
-    if (
-        now - button.lastChangeTime >= DEBOUNCE_MS &&
-        reading != button.stableState
-    )
+    void performStartupTasks()
     {
-        button.stableState = reading;
+        // Later:
+        // - Initialise SD card
+        // - Find available books
+        // - Restore reading progress
+        // - Read battery level
 
-        return button.stableState == LOW;
+        startupReady = true;
     }
 
-    return false;
-}
-
-void performStartupTasks()
-{
-    // Later:
-    // - Initialise SD card
-    // - Find available books
-    // - Restore reading progress
-    // - Read battery level
-
-    startupReady = true;
-}
-
-void drawCurrentPage()
-{
-    switch (getCurrentPage())
+    void drawCurrentPage()
     {
-        case Page::MainMenu:
-            drawMainMenu(85);
-            break;
+        switch (getCurrentPage())
+        {
+            case Page::MainMenu:
+                drawMainMenu(85);
+                break;
 
-        case Page::Reader:
-            // drawReader();
-            break;
+            case Page::Reader:
+                // drawReader();
+                Serial.println(F("Reader page not implemented yet"));
+                break;
 
-        case Page::MyBooks:
-            // drawMyBooks();
-            break;
-
-        case Page::Startup:
-            break;
-    }
-}
-
-void navigateTo(Page page)
-{
-    if (pageStackSize >= PAGE_STACK_CAPACITY)
-    {
-        Serial.println(F("Page stack is full"));
-        return;
+            case Page::MyBooks:
+                // drawMyBooks();
+                Serial.println(F("My Books page not implemented yet"));
+                break;
+        }
     }
 
-    pageStack[pageStackSize] = page;
-    pageStackSize++;
-
-    drawCurrentPage();
-}
-
-void navigateBack()
-{
-    if (pageStackSize <= 1)
+    void navigateTo(Page page)
     {
-        return;
+        if (pageStackSize >= PAGE_STACK_CAPACITY)
+        {
+            Serial.println(F("Page stack is full"));
+            return;
+        }
+
+        pageStack[pageStackSize] = page;
+        pageStackSize++;
+        drawCurrentPage();
     }
 
-    pageStackSize--;
-    drawCurrentPage();
-}
-
-void replaceCurrentPage(Page page)
-{
-    pageStack[pageStackSize - 1] = page;
-    drawCurrentPage();
-}
-
-constexpr unsigned long DOUBLE_TAP_MS = 350;
-bool selectTapPending = false;
-unsigned long firstSelectTapTime = 0;
-
-void selectCurrentItem()
-{
-    switch (getCurrentPage())
+    void navigateBack()
     {
-        case Page::MainMenu:
-            switch (getSelectedMainMenuItem())
-            {
-                case MainMenuItem::ContinueReading:
-                    navigateTo(Page::Reader);
-                    break;
+        if (pageStackSize <= 1)
+        {
+            return;
+        }
 
-                case MainMenuItem::MyBooks:
-                    navigateTo(Page::MyBooks);
-                    break;
-            }
-            break;
-
-        case Page::MyBooks:
-            // Later: open the selected book.
-            break;
-
-        default:
-            break;
+        pageStackSize--;
+        drawCurrentPage();
     }
-}
 
-void handleSelectPress()
-{
-    const unsigned long now = millis();
+    void replaceCurrentPage(Page page)
+    {
+        pageStack[pageStackSize - 1] = page;
+        drawCurrentPage();
+    }
 
-    if (
-        selectTapPending &&
-        now - firstSelectTapTime <= DOUBLE_TAP_MS
-    ) {
+    void selectCurrentItem()
+    {
+        switch (getCurrentPage())
+        {
+            case Page::MainMenu:
+                switch (getSelectedMainMenuItem())
+                {
+                    case MainMenuItem::ContinueReading:
+                        navigateTo(Page::Reader);
+                        break;
+
+                    case MainMenuItem::MyBooks:
+                        navigateTo(Page::MyBooks);
+                        break;
+
+                    default:
+                        break;
+                }
+                break;
+
+            case Page::MyBooks:
+                // Later: open the selected book.
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    void handleSelectPress()
+    {
+        const unsigned long now = millis();
+
+        if (
+            selectTapPending &&
+            now - firstSelectTapTime <= DOUBLE_TAP_MS
+        ) {
+            selectTapPending = false;
+            navigateBack();
+            return;
+        }
+
+        selectTapPending = true;
+        firstSelectTapTime = now;
+    }
+
+    void processPendingSelectTap()
+    {
+        if (
+            !selectTapPending ||
+            millis() - firstSelectTapTime < DOUBLE_TAP_MS
+        ) {
+            return;
+        }
+
         selectTapPending = false;
-        navigateBack();
-        return;
+        selectCurrentItem();
     }
 
-    selectTapPending = true;
-    firstSelectTapTime = now;
-}
+    void logInput(const InputState& input)
+    {
+        if (input.upPressed)
+        {
+            Serial.println(F("Up pressed"));
+        }
 
-void processPendingSelectTap()
-{
-    if (
-        !selectTapPending ||
-        millis() - firstSelectTapTime < DOUBLE_TAP_MS
-    ) {
-        return;
+        if (input.downPressed)
+        {
+            Serial.println(F("Down pressed"));
+        }
+
+        if (input.selectPressed)
+        {
+            Serial.println(F("Select pressed"));
+        }
     }
 
-    selectTapPending = false;
-    selectCurrentItem();
+    void handleStartupInput(const InputState& input)
+    {
+        if (
+            startupReady &&
+            (
+                input.upPressed ||
+                input.downPressed ||
+                input.selectPressed
+            )
+        ) {
+            selectTapPending = false;
+            replaceCurrentPage(Page::MainMenu);
+        }
+    }
+
+    void handleMainMenuInput(const InputState& input)
+    {
+        if (input.upPressed && !input.downPressed)
+        {
+            selectTapPending = false;
+            const MainMenuItem previousItem = getSelectedMainMenuItem();
+
+            if (moveMainMenuUp())
+            {
+                redrawMainMenuSelection(previousItem);
+            }
+        }
+        else if (input.downPressed && !input.upPressed)
+        {
+            selectTapPending = false;
+            const MainMenuItem previousItem = getSelectedMainMenuItem();
+
+            if (moveMainMenuDown())
+            {
+                redrawMainMenuSelection(previousItem);
+            }
+        }
+    }
 }
 
 void setup()
 {
     Serial.begin(115200);
-
-    pinMode(BoardConfig::PREVIOUS_BUTTON_PIN, INPUT_PULLUP);
-    pinMode(BoardConfig::NEXT_BUTTON_PIN, INPUT_PULLUP);
-    pinMode(BoardConfig::SELECT_BUTTON_PIN, INPUT_PULLUP);
-
+    initInput();
     initDisplay();
 
     drawStartupScreen(false);
@@ -223,74 +223,21 @@ void setup()
 
 void loop()
 {
-    const bool upPressed =
-        wasPressed(previousButton);
-
-    const bool downPressed =
-        wasPressed(nextButton);
-
-    const bool selectPressed =
-        wasPressed(selectButton);
-
-    if (upPressed)
-    {
-        Serial.println(F("Up pressed"));
-    }
-
-    if (downPressed)
-    {
-        Serial.println(F("Down pressed"));
-    }
-
-    if (selectPressed)
-    {
-        Serial.println(F("Select pressed"));
-    }
+    const InputState input = readInput();
+    logInput(input);
 
     if (getCurrentPage() == Page::Startup)
     {
-        if (
-            startupReady &&
-            (
-                upPressed ||
-                downPressed ||
-                selectPressed
-            )
-        ) {
-            selectTapPending = false;
-            replaceCurrentPage(Page::MainMenu);
-        }
-
+        handleStartupInput(input);
         return;
     }
 
     if (getCurrentPage() == Page::MainMenu)
     {
-        if (upPressed && !downPressed)
-        {
-            selectTapPending = false;
-            const MainMenuItem previousItem =
-                getSelectedMainMenuItem();
-
-            if (moveMainMenuUp())
-            {
-                redrawMainMenuSelection(previousItem);
-            }
-        }
-        else if (downPressed && !upPressed)
-        {
-            selectTapPending = false;
-            const MainMenuItem previousItem =
-                getSelectedMainMenuItem();
-
-            if (moveMainMenuDown())
-            {
-                redrawMainMenuSelection(previousItem);
-            }
-        }
+        handleMainMenuInput(input);
     }
 
-    if (selectPressed)
+    if (input.selectPressed)
     {
         handleSelectPress();
     }

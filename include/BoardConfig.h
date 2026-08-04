@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Arduino.h>
+
 namespace BoardConfig
 {
     constexpr int EPD_CS = 10;

@@ -10,7 +10,7 @@
 namespace
 {
     const char* const ITEMS[] = {
-        "Continue reading",
+        "Continue Reading",
         "My Books",
         "Add Books",
         "Wi-Fi Settings"
