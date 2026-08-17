@@ -12,8 +12,8 @@ namespace
 }
 
 void drawFooter(
-    const char* leftText = nullptr,
-    const char* rightText = nullptr
+    const char* leftText,
+    const char* rightText
 ) {
     const int footerTop =
         display.height() - Theme::FOOTER_HEIGHT;

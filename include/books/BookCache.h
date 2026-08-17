@@ -8,6 +8,10 @@ struct CachedBook
     const char* title;
 };
 
+#if defined(ARDUINO_ARCH_ESP32)
+bool initBookCache();
+#endif
+
 uint8_t getCachedBookCount();
 const char* const* getCachedBookTitles();
 const CachedBook& getCachedBook(uint8_t index);

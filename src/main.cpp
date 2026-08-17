@@ -36,9 +36,12 @@ namespace
 
     void performStartupTasks()
     {
+#if defined(ARDUINO_ARCH_ESP32)
+        initBookCache();
+#endif
+
         // Later:
-        // - Initialise SD card
-        // - Find available books
+        // - Find available books from the cache manifest
         // - Restore reading progress
         // - Read battery level
 
