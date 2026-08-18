@@ -4,7 +4,7 @@
 #include "screens/MyBooks.h"
 #include "screens/PlaceholderPages.h"
 #include "screens/Reader.h"
-#include "screens/WifiSetup.h"
+#include "screens/WifiSettings.h"
 
 namespace
 {
@@ -15,7 +15,7 @@ namespace
         "ADD BOOKS",
         "Book downloads are not implemented yet"
     );
-    WifiSetupPage wiFiSettingsPage;
+    WifiSettingsPage wiFiSettingsPage;
 
     const PageDefinition PAGES[] = {
 #define PAGE(id, title, instance) { PageId::id, title, &instance },

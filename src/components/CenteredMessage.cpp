@@ -8,6 +8,12 @@ namespace
 {
     constexpr size_t TEXT_BUFFER_SIZE = 64;
 
+    struct MessageSelectionLayout
+    {
+        int optionsTop;
+        int optionGroupX;
+    };
+
     bool hasText(const char* text)
     {
         return text != nullptr && text[0] != '\0';
@@ -194,6 +200,71 @@ namespace
             currentY += Theme::MESSAGE_LINE_HEIGHT;
         }
     }
+
+    MessageSelectionLayout calculateSelectionLayout(
+        const char* firstLine,
+        const char* secondLine,
+        const char* const options[],
+        uint8_t optionCount
+    ) {
+        const uint16_t contentWidth =
+            display.width() - 2 * Theme::PAGE_MARGIN;
+        const int contentTop = Theme::HEADER_HEIGHT + 1;
+        const int contentHeight =
+            display.height() - Theme::FOOTER_HEIGHT - contentTop;
+        const uint8_t lineCount =
+            countWrappedLines(firstLine, contentWidth) +
+            countWrappedLines(secondLine, contentWidth);
+        int blockHeight = lineCount * Theme::MESSAGE_LINE_HEIGHT;
+
+        if (optionCount > 0)
+        {
+            if (lineCount > 0)
+            {
+                blockHeight += Theme::MESSAGE_OPTIONS_TOP_GAP;
+            }
+            blockHeight += optionCount * Theme::MESSAGE_OPTION_HEIGHT;
+            if (optionCount > 1)
+            {
+                blockHeight +=
+                    (optionCount - 1) * Theme::MESSAGE_OPTION_GAP;
+            }
+        }
+
+        int optionsTop = contentTop;
+        if (blockHeight < contentHeight)
+        {
+            optionsTop += (contentHeight - blockHeight) / 2;
+        }
+        optionsTop += lineCount * Theme::MESSAGE_LINE_HEIGHT;
+        if (lineCount > 0 && optionCount > 0)
+        {
+            optionsTop += Theme::MESSAGE_OPTIONS_TOP_GAP;
+        }
+
+        uint16_t widestOption = 0;
+        for (uint8_t i = 0; options != nullptr && i < optionCount; i++)
+        {
+            const uint16_t width =
+                getTextWidth(options[i], Theme::BODY_FONT);
+            if (width > widestOption)
+            {
+                widestOption = width;
+            }
+        }
+        const uint16_t markerAndGapWidth =
+            Theme::SELECT_LIST_MARKER_WIDTH +
+            Theme::SELECT_LIST_MARKER_GAP;
+        const uint16_t optionTextWidth = min(
+            widestOption,
+            static_cast<uint16_t>(contentWidth - markerAndGapWidth)
+        );
+
+        return {
+            optionsTop,
+            (display.width() - markerAndGapWidth - optionTextWidth) / 2
+        };
+    }
 }
 
 void drawMessage(
@@ -364,4 +435,59 @@ void drawMessage(
     }
 
     display.setTextColor(Theme::TEXT_COLOR);
+}
+
+void redrawMessageSelection(
+    const char* firstLine,
+    const char* secondLine,
+    const char* const options[],
+    uint8_t optionCount,
+    uint8_t previousIndex,
+    uint8_t selectedIndex
+) {
+    if (
+        options == nullptr || optionCount == 0 ||
+        previousIndex >= optionCount || selectedIndex >= optionCount ||
+        previousIndex == selectedIndex
+    ) {
+        return;
+    }
+
+    const MessageSelectionLayout layout = calculateSelectionLayout(
+        firstLine, secondLine, options, optionCount
+    );
+    const int optionStride =
+        Theme::MESSAGE_OPTION_HEIGHT + Theme::MESSAGE_OPTION_GAP;
+    const uint8_t firstIndex = min(previousIndex, selectedIndex);
+    const uint8_t lastIndex = max(previousIndex, selectedIndex);
+    const int updateTop = layout.optionsTop + firstIndex * optionStride;
+    const int updateHeight =
+        (lastIndex - firstIndex) * optionStride +
+        Theme::MESSAGE_OPTION_HEIGHT;
+
+    display.setPartialWindow(
+        layout.optionGroupX,
+        updateTop,
+        Theme::SELECT_LIST_MARKER_WIDTH,
+        updateHeight
+    );
+    display.firstPage();
+    do
+    {
+        display.fillRect(
+            layout.optionGroupX,
+            updateTop,
+            Theme::SELECT_LIST_MARKER_WIDTH,
+            updateHeight,
+            Theme::BACKGROUND_COLOR
+        );
+        display.fillRect(
+            layout.optionGroupX,
+            layout.optionsTop + selectedIndex * optionStride,
+            Theme::SELECT_LIST_MARKER_WIDTH,
+            Theme::MESSAGE_OPTION_HEIGHT,
+            Theme::TEXT_COLOR
+        );
+    }
+    while (display.nextPage());
 }

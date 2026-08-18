@@ -17,6 +17,7 @@ public:
     void begin();
     void connect(const char* ssid, const char* password);
     void disconnect();
+    void reconnectSavedNetwork();
     void forgetNetwork();
     bool startSetupAccessPoint();
     void stopSetupAccessPoint();

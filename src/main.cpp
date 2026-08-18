@@ -245,12 +245,32 @@ void setup()
 void loop()
 {
     const WifiState previousWifiState = getWifiManager().getState();
+    const bool portalWasActive = getWifiProvisioningPortal().isActive();
     getWifiManager().update();
     getWifiProvisioningPortal().update();
 
-    if (getWifiManager().getState() != previousWifiState)
+    const bool wifiStateChanged =
+        getWifiManager().getState() != previousWifiState;
+    const bool portalStateChanged =
+        getWifiProvisioningPortal().isActive() != portalWasActive;
+
+    if (wifiStateChanged || portalStateChanged)
     {
-        redrawHeaderStatus(BATTERY_PERCENT);
+        const PageDefinition* currentPage = startupDismissed
+            ? getCurrentPage()
+            : nullptr;
+
+        if (
+            currentPage != nullptr &&
+            currentPage->page != nullptr &&
+            currentPage->page->redrawOnWifiStateChange()
+        ) {
+            drawCurrentPage();
+        }
+        else if (wifiStateChanged)
+        {
+            redrawHeaderStatus(BATTERY_PERCENT);
+        }
     }
 
     const InputState input = readInput();

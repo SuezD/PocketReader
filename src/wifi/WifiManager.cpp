@@ -80,6 +80,33 @@ void WifiManager::disconnect()
     setState(WifiState::Disconnected);
 }
 
+void WifiManager::reconnectSavedNetwork()
+{
+    if (!preferencesReady)
+    {
+        Serial.println(F("Wi-Fi preferences are unavailable"));
+        return;
+    }
+
+    const String savedName = preferences.getString("ssid", "");
+
+    if (savedName.length() == 0)
+    {
+        Serial.println(F("No saved Wi-Fi network"));
+        return;
+    }
+
+    networkName = savedName;
+    networkPassword = preferences.getString("password", "");
+    savedNetworkAvailable = true;
+    shouldReconnect = true;
+    saveAfterConnection = false;
+    WiFi.disconnect(false, false);
+    retryAt = millis() + CONNECTION_RESET_MS;
+    connectionResetPending = true;
+    setState(WifiState::Disconnected);
+}
+
 void WifiManager::forgetNetwork()
 {
     disconnect();

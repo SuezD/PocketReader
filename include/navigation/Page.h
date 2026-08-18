@@ -26,4 +26,9 @@ public:
     virtual void onExit()
     {
     }
+
+    virtual bool redrawOnWifiStateChange() const
+    {
+        return false;
+    }
 };
