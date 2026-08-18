@@ -5,7 +5,6 @@
 #include "components/CenteredMessage.h"
 #include "components/Footer.h"
 #include "components/Header.h"
-#include "components/PageContent.h"
 #include "wifi/WifiService.h"
 
 namespace
@@ -24,7 +23,7 @@ void WifiSettingsPage::draw(uint8_t nextBatteryPercent)
     const char* items[MAX_ITEMS];
     const uint8_t itemCount = getItems(items);
     if (selectedIndex >= itemCount) selectedIndex = itemCount - 1;
-    const String heading = getHeading();
+    const String connectionStatus = getConnectionStatus();
 
     display.setFullWindow();
     display.firstPage();
@@ -32,8 +31,8 @@ void WifiSettingsPage::draw(uint8_t nextBatteryPercent)
     {
         display.fillScreen(Theme::BACKGROUND_COLOR);
         drawHeader("WI-FI SETTINGS", batteryPercent);
-        drawMessage(heading.c_str(), nullptr, items, itemCount, selectedIndex);
-        drawFooter();
+        drawMessage("Known Networks", nullptr, items, itemCount, selectedIndex);
+        drawFooter(connectionStatus.c_str());
     }
     while (display.nextPage());
 }
@@ -86,7 +85,8 @@ bool WifiSettingsPage::handleConnectivityStateChange(
     if (wifiStateChanged)
     {
         redrawHeaderStatus(batteryPercent);
-        redrawContent();
+        const String connectionStatus = getConnectionStatus();
+        redrawFooter(connectionStatus.c_str());
     }
     return true;
 }
@@ -103,61 +103,39 @@ uint8_t WifiSettingsPage::getItems(const char** items) const
     return networkCount + 1;
 }
 
-String WifiSettingsPage::getHeading() const
+String WifiSettingsPage::getConnectionStatus() const
 {
     WifiManager& wifi = getWifiManager();
-    String heading;
+    String status;
 
     if (wifi.isConnected())
     {
-        heading = "Connected\n";
-        heading += wifi.getNetworkName();
+        status = "Connected: ";
     }
     else if (wifi.getState() == WifiState::Connecting)
     {
-        heading = "Connecting\n";
-        heading += wifi.getNetworkName();
+        status = "Connecting: ";
     }
     else if (
         wifi.getState() == WifiState::Failed &&
         wifi.getNetworkName()[0] != '\0'
     ) {
-        heading = "Could not connect\n";
-        heading += wifi.getNetworkName();
+        status = "Failed: ";
     }
 
-    if (heading.length() > 0)
+    if (status.length() > 0)
     {
-        heading += '\n';
+        status += wifi.getNetworkName();
     }
-    heading += "Known Networks";
-    return heading;
+    return status;
 }
 
 void WifiSettingsPage::redrawSelection(uint8_t previousIndex)
 {
     const char* items[MAX_ITEMS];
     const uint8_t itemCount = getItems(items);
-    const String heading = getHeading();
     redrawMessageSelection(
-        heading.c_str(), nullptr, items, itemCount,
+        "Known Networks", nullptr, items, itemCount,
         previousIndex, selectedIndex
     );
-}
-
-void WifiSettingsPage::redrawContent()
-{
-    const char* items[MAX_ITEMS];
-    const uint8_t itemCount = getItems(items);
-    if (selectedIndex >= itemCount) selectedIndex = itemCount - 1;
-    const String heading = getHeading();
-
-    setPageContentPartialWindow();
-    display.firstPage();
-    do
-    {
-        clearPageContent();
-        drawMessage(heading.c_str(), nullptr, items, itemCount, selectedIndex);
-    }
-    while (display.nextPage());
 }

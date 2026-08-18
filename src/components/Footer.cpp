@@ -117,3 +117,29 @@ void drawFooter(
         display.print(rightOutput);
     }
 }
+
+void redrawFooter(const char* leftText, const char* rightText)
+{
+    const int footerTop =
+        display.height() - Theme::FOOTER_HEIGHT;
+
+    display.setPartialWindow(
+        0,
+        footerTop,
+        display.width(),
+        Theme::FOOTER_HEIGHT
+    );
+    display.firstPage();
+    do
+    {
+        display.fillRect(
+            0,
+            footerTop,
+            display.width(),
+            Theme::FOOTER_HEIGHT,
+            Theme::BACKGROUND_COLOR
+        );
+        drawFooter(leftText, rightText);
+    }
+    while (display.nextPage());
+}

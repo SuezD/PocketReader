@@ -23,7 +23,6 @@ private:
     uint8_t batteryPercent = 0;
 
     uint8_t getItems(const char** items) const;
-    String getHeading() const;
+    String getConnectionStatus() const;
     void redrawSelection(uint8_t previousIndex);
-    void redrawContent();
 };
