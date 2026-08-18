@@ -1,6 +1,7 @@
 #include "screens/Reader.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "Display.h"
 #include "Theme.h"
@@ -15,6 +16,7 @@ namespace
     constexpr uint8_t READER_TEXT_BASELINE = 13;
     constexpr uint8_t MAX_LINE_LENGTH = 48;
     constexpr uint8_t PARTIAL_TURNS_BEFORE_FULL_REFRESH = 12;
+    constexpr uint16_t INITIAL_PAGE_INDEX_CAPACITY = 16;
     constexpr int READER_PARTIAL_UPDATE_TOP =
         Theme::HEADER_HEIGHT + 1;
 
@@ -23,6 +25,10 @@ namespace
     uint16_t currentPage = 0;
     bool readerNeedsFullRefresh = true;
     uint8_t partialTurnsSinceFullRefresh = 0;
+    uint32_t* pageStartOffsets = nullptr;
+    uint16_t pageStartCount = 0;
+    uint16_t pageStartCapacity = 0;
+    bool pageIndexReady = false;
 
     bool hasOpenDocument()
     {
@@ -196,7 +202,92 @@ namespace
         return position;
     }
 
-    uint32_t getPageStart(uint16_t pageIndex)
+    void clearPageIndex()
+    {
+        free(pageStartOffsets);
+        pageStartOffsets = nullptr;
+        pageStartCount = 0;
+        pageStartCapacity = 0;
+        pageIndexReady = false;
+    }
+
+    bool addPageStart(uint32_t pageStart)
+    {
+        if (pageStartCount == UINT16_MAX)
+        {
+            return false;
+        }
+
+        if (pageStartCount == pageStartCapacity)
+        {
+            uint32_t expandedCapacity =
+                pageStartCapacity == 0 ?
+                    INITIAL_PAGE_INDEX_CAPACITY :
+                    static_cast<uint32_t>(pageStartCapacity) * 2;
+
+            if (expandedCapacity > UINT16_MAX)
+            {
+                expandedCapacity = UINT16_MAX;
+            }
+
+            const size_t expandedBytes =
+                expandedCapacity * sizeof(*pageStartOffsets);
+            void* expandedOffsets =
+                realloc(pageStartOffsets, expandedBytes);
+
+            if (expandedOffsets == nullptr)
+            {
+                return false;
+            }
+
+            pageStartOffsets =
+                static_cast<uint32_t*>(expandedOffsets);
+            pageStartCapacity = expandedCapacity;
+        }
+
+        pageStartOffsets[pageStartCount] = pageStart;
+        pageStartCount++;
+        return true;
+    }
+
+    bool buildPageIndex()
+    {
+        clearPageIndex();
+
+        if (!hasOpenDocument() || !addPageStart(0))
+        {
+            return false;
+        }
+
+        uint32_t pageStart = 0;
+
+        while (pageStart < currentDocument.byteLength)
+        {
+            const uint32_t nextPageStart =
+                getNextPageStart(pageStart);
+
+            if (nextPageStart >= currentDocument.byteLength)
+            {
+                pageIndexReady = true;
+                return true;
+            }
+
+            if (
+                nextPageStart <= pageStart ||
+                !addPageStart(nextPageStart)
+            ) {
+                clearPageIndex();
+                return false;
+            }
+
+            pageStart = nextPageStart;
+        }
+
+        pageIndexReady = true;
+        return true;
+    }
+
+    uint32_t findPageStartWithoutIndex(uint16_t pageIndex)
     {
         uint32_t pageStart = 0;
 
@@ -211,7 +302,7 @@ namespace
         return pageStart;
     }
 
-    uint16_t getPageCount()
+    uint16_t countPagesWithoutIndex()
     {
         if (!hasOpenDocument())
         {
@@ -234,6 +325,26 @@ namespace
             count++;
             pageStart = nextPageStart;
         }
+    }
+
+    uint32_t getPageStart(uint16_t pageIndex)
+    {
+        if (pageIndexReady && pageIndex < pageStartCount)
+        {
+            return pageStartOffsets[pageIndex];
+        }
+
+        return findPageStartWithoutIndex(pageIndex);
+    }
+
+    uint16_t getPageCount()
+    {
+        if (pageIndexReady)
+        {
+            return pageStartCount;
+        }
+
+        return countPagesWithoutIndex();
     }
 
     void drawCurrentTextPage()
@@ -277,6 +388,11 @@ void openReader(
     currentPage = 0;
     readerNeedsFullRefresh = true;
     partialTurnsSinceFullRefresh = 0;
+
+    if (hasOpenDocument() && !buildPageIndex())
+    {
+        Serial.println(F("Reader page index unavailable"));
+    }
 }
 
 bool moveReaderPreviousPage()
