@@ -6,7 +6,8 @@
 
 void openReader(
     const CachedBook* book,
-    const ReaderDocument& document
+    const ReaderDocument& document,
+    uint16_t savedPage
 );
 
 bool moveReaderPreviousPage();

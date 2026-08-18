@@ -42,7 +42,6 @@ namespace
 
         // Later:
         // - Find available books from the cache manifest
-        // - Restore reading progress
         // - Read battery level
 
         startupReady = true;
@@ -127,7 +126,11 @@ namespace
                 const CachedBook& book = getSelectedMyBook();
                 ReaderDocument document = {};
                 openCachedBookDocument(book, document);
-                openReader(&book, document);
+                openReader(
+                    &book,
+                    document,
+                    getCachedBookPage(book)
+                );
                 navigateTo(Page::Reader);
                 break;
             }

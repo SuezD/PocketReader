@@ -380,7 +380,8 @@ namespace
 
 void openReader(
     const CachedBook* book,
-    const ReaderDocument& document
+    const ReaderDocument& document,
+    uint16_t savedPage
 )
 {
     currentBook = book;
@@ -393,6 +394,19 @@ void openReader(
     {
         Serial.println(F("Reader page index unavailable"));
     }
+
+    const uint16_t pageCount = getPageCount();
+
+    if (pageCount > 0)
+    {
+        const uint16_t lastPage = pageCount - 1;
+        currentPage = savedPage > lastPage ? lastPage : savedPage;
+    }
+
+    if (currentBook != nullptr)
+    {
+        saveCachedBookPage(*currentBook, currentPage);
+    }
 }
 
 bool moveReaderPreviousPage()
@@ -403,6 +417,7 @@ bool moveReaderPreviousPage()
     }
 
     currentPage--;
+    saveCachedBookPage(*currentBook, currentPage);
     return true;
 }
 
@@ -416,6 +431,7 @@ bool moveReaderNextPage()
     }
 
     currentPage++;
+    saveCachedBookPage(*currentBook, currentPage);
     return true;
 }
 

@@ -1,5 +1,6 @@
 #include "books/BookCache.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #if defined(ARDUINO_ARCH_ESP32)
@@ -11,6 +12,7 @@ namespace
 #if defined(ARDUINO_ARCH_ESP32)
     constexpr char TEST_BOOK_ID[] = "lorem-ipsum";
     constexpr char TEST_BOOK_PATH[] = "/lorem.txt";
+    constexpr char READING_PROGRESS_PATH[] = "/reading-progress.txt";
     constexpr size_t FILE_READ_BUFFER_SIZE = 96;
 
     const CachedBook BOOKS[] = {
@@ -63,7 +65,7 @@ namespace
     }
 #else
     const CachedBook BOOKS[] = {
-        { "book-1", "The Hobbit" }
+        { "book-1", "Lorem Ipsum" }
     };
 
     const char* const BOOK_TITLES[] = {
@@ -84,6 +86,95 @@ namespace
 
     constexpr uint8_t BOOK_COUNT =
         sizeof(BOOKS) / sizeof(BOOKS[0]);
+    uint16_t savedPages[BOOK_COUNT] = {};
+
+    int getBookIndex(const CachedBook& book)
+    {
+        for (uint8_t index = 0; index < BOOK_COUNT; index++)
+        {
+            if (strcmp(book.id, BOOKS[index].id) == 0)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+#if defined(ARDUINO_ARCH_ESP32)
+    void loadReadingProgress()
+    {
+        File progressFile = LittleFS.open(READING_PROGRESS_PATH, "r");
+
+        if (!progressFile)
+        {
+            return;
+        }
+
+        char entry[64];
+
+        while (progressFile.available())
+        {
+            const size_t entryLength = progressFile.readBytesUntil(
+                '\n',
+                entry,
+                sizeof(entry) - 1
+            );
+            entry[entryLength] = '\0';
+
+            char* separator = strchr(entry, '\t');
+
+            if (separator == nullptr)
+            {
+                continue;
+            }
+
+            *separator = '\0';
+            const uint32_t page = strtoul(separator + 1, nullptr, 10);
+
+            if (page > UINT16_MAX)
+            {
+                continue;
+            }
+
+            for (uint8_t index = 0; index < BOOK_COUNT; index++)
+            {
+                if (strcmp(entry, BOOKS[index].id) == 0)
+                {
+                    savedPages[index] = page;
+                    break;
+                }
+            }
+        }
+
+        progressFile.close();
+    }
+
+    void writeReadingProgress()
+    {
+        if (!fileSystemReady)
+        {
+            return;
+        }
+
+        File progressFile = LittleFS.open(READING_PROGRESS_PATH, "w");
+
+        if (!progressFile)
+        {
+            Serial.println(F("Could not save reading progress"));
+            return;
+        }
+
+        for (uint8_t index = 0; index < BOOK_COUNT; index++)
+        {
+            progressFile.print(BOOKS[index].id);
+            progressFile.print('\t');
+            progressFile.println(savedPages[index]);
+        }
+
+        progressFile.close();
+    }
+#endif
 }
 
 #if defined(ARDUINO_ARCH_ESP32)
@@ -94,9 +185,11 @@ bool initBookCache()
     if (!fileSystemReady)
     {
         Serial.println(F("LittleFS unavailable"));
+        return false;
     }
 
-    return fileSystemReady;
+    loadReadingProgress();
+    return true;
 }
 #endif
 
@@ -113,6 +206,28 @@ const char* const* getCachedBookTitles()
 const CachedBook& getCachedBook(uint8_t index)
 {
     return BOOKS[index < BOOK_COUNT ? index : 0];
+}
+
+uint16_t getCachedBookPage(const CachedBook& book)
+{
+    const int index = getBookIndex(book);
+    return index >= 0 ? savedPages[index] : 0;
+}
+
+void saveCachedBookPage(const CachedBook& book, uint16_t page)
+{
+    const int index = getBookIndex(book);
+
+    if (index < 0 || savedPages[index] == page)
+    {
+        return;
+    }
+
+    savedPages[index] = page;
+
+#if defined(ARDUINO_ARCH_ESP32)
+    writeReadingProgress();
+#endif
 }
 
 bool openCachedBookDocument(
