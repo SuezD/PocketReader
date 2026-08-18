@@ -5,6 +5,7 @@
 #include "components/CenteredMessage.h"
 #include "components/Footer.h"
 #include "components/Header.h"
+#include "components/PageContent.h"
 #include "wifi/WifiProvisioningService.h"
 #include "wifi/WifiService.h"
 
@@ -17,7 +18,7 @@ namespace
             case WifiState::Disconnected: return "Status: Disconnected";
             case WifiState::Connecting: return "Status: Connecting";
             case WifiState::Connected: return "Status: Connected";
-            case WifiState::Failed: return "Status: Connection Failed";
+            case WifiState::Failed: return "Status: Failed - Retrying";
         }
 
         return "Status: Unknown";
@@ -109,9 +110,6 @@ NavigationRequest WifiSettingsPage::select()
         case Action::StopPortal:
             portal.stop();
             break;
-        case Action::Reconnect:
-            wifi.reconnectSavedNetwork();
-            break;
         case Action::ForgetNetwork:
             portal.stop();
             wifi.forgetNetwork();
@@ -120,12 +118,25 @@ NavigationRequest WifiSettingsPage::select()
     }
 
     selectedIndex = 0;
-    draw(batteryPercent);
+    redrawContent();
     return noNavigation();
 }
 
-bool WifiSettingsPage::redrawOnWifiStateChange() const
+bool WifiSettingsPage::handleConnectivityStateChange(
+    uint8_t nextBatteryPercent,
+    bool wifiStateChanged,
+    bool portalStateChanged
+)
 {
+    batteryPercent = nextBatteryPercent;
+    if (wifiStateChanged)
+    {
+        redrawHeaderStatus(batteryPercent);
+    }
+    if (wifiStateChanged || portalStateChanged)
+    {
+        redrawContent();
+    }
     return true;
 }
 
@@ -145,15 +156,6 @@ uint8_t WifiSettingsPage::getActions(
     {
         actions[count] = Action::StartPortal;
         labels[count++] = "Start Setup Portal";
-    }
-
-    if (
-        wifi.hasSavedNetwork() &&
-        wifi.getState() != WifiState::Connected &&
-        wifi.getState() != WifiState::Connecting
-    ) {
-        actions[count] = Action::Reconnect;
-        labels[count++] = "Reconnect";
     }
 
     if (wifi.hasSavedNetwork())
@@ -215,4 +217,32 @@ void WifiSettingsPage::redrawSelection(uint8_t previousIndex)
         previousIndex,
         selectedIndex
     );
+}
+
+void WifiSettingsPage::redrawContent()
+{
+    Action actions[MAX_ACTION_COUNT];
+    const char* labels[MAX_ACTION_COUNT];
+    const uint8_t actionCount = getActions(actions, labels);
+
+    if (selectedIndex >= actionCount)
+    {
+        selectedIndex = actionCount == 0 ? 0 : actionCount - 1;
+    }
+
+    const String details = getDetails();
+    setPageContentPartialWindow();
+    display.firstPage();
+    do
+    {
+        clearPageContent();
+        drawMessage(
+            getStatusLine(),
+            details.c_str(),
+            labels,
+            actionCount,
+            selectedIndex
+        );
+    }
+    while (display.nextPage());
 }

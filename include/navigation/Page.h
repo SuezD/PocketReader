@@ -27,8 +27,15 @@ public:
     {
     }
 
-    virtual bool redrawOnWifiStateChange() const
+    virtual bool handleConnectivityStateChange(
+        uint8_t batteryPercent,
+        bool wifiStateChanged,
+        bool portalStateChanged
+    )
     {
+        (void) batteryPercent;
+        (void) wifiStateChanged;
+        (void) portalStateChanged;
         return false;
     }
 };

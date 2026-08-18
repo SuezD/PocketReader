@@ -260,14 +260,16 @@ void loop()
             ? getCurrentPage()
             : nullptr;
 
-        if (
+        const bool pageHandledChange =
             currentPage != nullptr &&
             currentPage->page != nullptr &&
-            currentPage->page->redrawOnWifiStateChange()
-        ) {
-            drawCurrentPage();
-        }
-        else if (wifiStateChanged)
+            currentPage->page->handleConnectivityStateChange(
+                BATTERY_PERCENT,
+                wifiStateChanged,
+                portalStateChanged
+            );
+
+        if (!pageHandledChange && wifiStateChanged)
         {
             redrawHeaderStatus(BATTERY_PERCENT);
         }
