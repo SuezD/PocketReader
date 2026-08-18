@@ -16,9 +16,7 @@ struct ReaderDocument
     char (*readCharacter)(const void* sourceContext, uint32_t position);
 };
 
-#if defined(ARDUINO_ARCH_ESP32)
 bool initBookCache();
-#endif
 
 uint8_t getCachedBookCount();
 const char* const* getCachedBookTitles();

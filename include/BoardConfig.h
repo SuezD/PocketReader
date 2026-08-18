@@ -4,7 +4,6 @@
 
 namespace BoardConfig
 {
-#if defined(ARDUINO_ARCH_ESP32)
     // XIAO ESP32-S3: D8 (GPIO 7) and D10 (GPIO 9).
     constexpr int EPD_SCK = 7;
     constexpr int EPD_MOSI = 9;
@@ -16,14 +15,4 @@ namespace BoardConfig
     constexpr uint8_t PREVIOUS_BUTTON_PIN = 1; // D0
     constexpr uint8_t NEXT_BUTTON_PIN = 2;     // D1
     constexpr uint8_t SELECT_BUTTON_PIN = 8;   // D9
-#else
-    constexpr int EPD_CS = 10;
-    constexpr int EPD_DC = 9;
-    constexpr int EPD_RST = 8;
-    constexpr int EPD_BUSY = 7;
-
-    constexpr uint8_t PREVIOUS_BUTTON_PIN = 2;
-    constexpr uint8_t NEXT_BUTTON_PIN = 3;
-    constexpr uint8_t SELECT_BUTTON_PIN = 4;
-#endif
 }

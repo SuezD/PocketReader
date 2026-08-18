@@ -31,9 +31,7 @@ namespace
 
     void performStartupTasks()
     {
-#if defined(ARDUINO_ARCH_ESP32)
         initBookCache();
-#endif
         // Later: read battery level.
         startupReady = true;
     }

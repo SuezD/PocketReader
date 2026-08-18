@@ -3,13 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(ARDUINO_ARCH_ESP32)
 #include <LittleFS.h>
-#endif
 
 namespace
 {
-#if defined(ARDUINO_ARCH_ESP32)
     constexpr char BOOK_MANIFEST_PATH[] = "/books.tsv";
     constexpr char READING_PROGRESS_PATH[] = "/reading-progress.txt";
     constexpr size_t FILE_READ_BUFFER_SIZE = 96;
@@ -183,32 +180,6 @@ namespace
 
         return fileReadBuffer[position - bufferedByteStart];
     }
-#else
-    const CachedBook BOOKS[] = {
-        { "book-1", "Lorem Ipsum", nullptr }
-    };
-
-    const char* const BOOK_TITLES[] = {
-        BOOKS[0].title
-    };
-
-    const char* const BOOK_TEXTS[] = {
-        "Then the hobbit slipped on his ring, "
-    };
-
-    char readStringCharacter(
-        const void* sourceContext,
-        uint32_t position
-    ) {
-        return static_cast<const char*>(sourceContext)[position];
-    }
-#endif
-
-#if !defined(ARDUINO_ARCH_ESP32)
-    constexpr uint8_t BOOK_COUNT = sizeof(BOOKS) / sizeof(BOOKS[0]);
-    uint16_t savedPages[BOOK_COUNT] = {};
-#endif
-
     int getBookIndex(const CachedBook& book)
     {
         const uint8_t count = getCachedBookCount();
@@ -224,7 +195,6 @@ namespace
         return -1;
     }
 
-#if defined(ARDUINO_ARCH_ESP32)
     void loadReadingProgress()
     {
         File progressFile = LittleFS.open(READING_PROGRESS_PATH, "r");
@@ -297,10 +267,8 @@ namespace
 
         progressFile.close();
     }
-#endif
 }
 
-#if defined(ARDUINO_ARCH_ESP32)
 bool initBookCache()
 {
     fileSystemReady = LittleFS.begin(false);
@@ -315,34 +283,21 @@ bool initBookCache()
     loadReadingProgress();
     return true;
 }
-#endif
 
 uint8_t getCachedBookCount()
 {
-#if defined(ARDUINO_ARCH_ESP32)
     return bookCount;
-#else
-    return BOOK_COUNT;
-#endif
 }
 
 const char* const* getCachedBookTitles()
 {
-#if defined(ARDUINO_ARCH_ESP32)
     return bookTitles;
-#else
-    return BOOK_TITLES;
-#endif
 }
 
 const CachedBook& getCachedBook(uint8_t index)
 {
-#if defined(ARDUINO_ARCH_ESP32)
     static const CachedBook EMPTY_BOOK = { "", "", "" };
     return index < bookCount ? books[index] : EMPTY_BOOK;
-#else
-    return BOOKS[index < BOOK_COUNT ? index : 0];
-#endif
 }
 
 uint16_t getCachedBookPage(const CachedBook& book)
@@ -362,9 +317,7 @@ void saveCachedBookPage(const CachedBook& book, uint16_t page)
 
     savedPages[index] = page;
 
-#if defined(ARDUINO_ARCH_ESP32)
     writeReadingProgress();
-#endif
 }
 
 bool openCachedBookDocument(
@@ -374,7 +327,6 @@ bool openCachedBookDocument(
 {
     document = {};
 
-#if defined(ARDUINO_ARCH_ESP32)
     if (!fileSystemReady || book.filePath == nullptr || book.filePath[0] == '\0')
     {
         return false;
@@ -405,18 +357,4 @@ bool openCachedBookDocument(
     document.sourceContext = currentFilePath;
     document.readCharacter = readLittleFsCharacter;
     return true;
-#else
-    for (uint8_t index = 0; index < BOOK_COUNT; index++)
-    {
-        if (strcmp(book.id, BOOKS[index].id) == 0)
-        {
-            document.byteLength = strlen(BOOK_TEXTS[index]);
-            document.sourceContext = BOOK_TEXTS[index];
-            document.readCharacter = readStringCharacter;
-            return document.byteLength > 0;
-        }
-    }
-
-    return false;
-#endif
 }
