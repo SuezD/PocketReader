@@ -46,6 +46,7 @@ const uint8_t READER_EMPTY_OPTION_COUNT =
     sizeof(READER_EMPTY_OPTIONS) / sizeof(READER_EMPTY_OPTIONS[0]);
 
 const NavigationRequest MY_BOOKS_EMPTY_OPTIONS[] = {
+    { NavigationMode::Push, PageId::MainMenu },
     { NavigationMode::Push, PageId::AddBooks }
 };
 

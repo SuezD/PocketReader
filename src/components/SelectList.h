@@ -25,3 +25,10 @@ void drawSelectList(
     uint8_t itemCount,
     SelectListState& state
 );
+
+void redrawSelectListAfterMove(
+    const char* const items[],
+    uint8_t itemCount,
+    const SelectListState& previousState,
+    SelectListState& state
+);

@@ -8,28 +8,37 @@ namespace
 {
     constexpr size_t TEXT_BUFFER_SIZE = 64;
 
-    uint8_t getVisibleItemCount()
+    int getListTop()
     {
-        const int contentTop =
+        return
             Theme::HEADER_HEIGHT +
             1 +
             Theme::SELECT_LIST_VERTICAL_PADDING;
+    }
 
-        const int contentBottom =
+    int getListBottom()
+    {
+        return
             display.height() -
             Theme::FOOTER_HEIGHT -
             Theme::SELECT_LIST_VERTICAL_PADDING;
+    }
 
-        const int contentHeight =
-            contentBottom - contentTop;
-
-        const int itemStride =
+    int getItemStride()
+    {
+        return
             Theme::SELECT_LIST_ITEM_HEIGHT +
             Theme::SELECT_LIST_ITEM_GAP;
+    }
+
+    uint8_t getVisibleItemCount()
+    {
+        const int contentHeight =
+            getListBottom() - getListTop();
 
         const uint8_t count =
             (contentHeight + Theme::SELECT_LIST_ITEM_GAP) /
-            itemStride;
+            getItemStride();
 
         return count > 0 ? count : 1;
     }
@@ -128,10 +137,7 @@ void drawSelectList(
         Theme::SELECT_LIST_MARKER_WIDTH -
         Theme::SELECT_LIST_MARKER_GAP;
 
-    const int listTop =
-        Theme::HEADER_HEIGHT +
-        1 +
-        Theme::SELECT_LIST_VERTICAL_PADDING;
+    const int listTop = getListTop();
 
     const uint8_t visibleItemCount =
         getVisibleItemCount();
@@ -158,10 +164,7 @@ void drawSelectList(
         const int rowY =
             listTop +
             visiblePosition *
-            (
-                Theme::SELECT_LIST_ITEM_HEIGHT +
-                Theme::SELECT_LIST_ITEM_GAP
-            );
+            getItemStride();
 
         const bool isSelected =
             index == state.selectedIndex;
@@ -202,4 +205,100 @@ void drawSelectList(
     }
 
     display.setTextColor(Theme::TEXT_COLOR);
+}
+
+void redrawSelectListAfterMove(
+    const char* const items[],
+    uint8_t itemCount,
+    const SelectListState& previousState,
+    SelectListState& state
+) {
+    if (
+        items == nullptr ||
+        itemCount == 0 ||
+        previousState.selectedIndex == state.selectedIndex
+    ) {
+        return;
+    }
+
+    const int contentLeft = Theme::PAGE_MARGIN;
+    const int contentWidth =
+        display.width() - (Theme::PAGE_MARGIN * 2);
+
+    if (previousState.firstVisibleIndex != state.firstVisibleIndex)
+    {
+        const int listTop = getListTop();
+        const int listHeight = getListBottom() - listTop;
+
+        display.setPartialWindow(
+            contentLeft,
+            listTop,
+            contentWidth,
+            listHeight
+        );
+        display.firstPage();
+
+        do
+        {
+            display.fillRect(
+                contentLeft,
+                listTop,
+                contentWidth,
+                listHeight,
+                Theme::BACKGROUND_COLOR
+            );
+            drawSelectList(items, itemCount, state);
+        }
+        while (display.nextPage());
+
+        return;
+    }
+
+    const uint8_t previousVisiblePosition =
+        previousState.selectedIndex -
+        previousState.firstVisibleIndex;
+    const uint8_t selectedVisiblePosition =
+        state.selectedIndex - state.firstVisibleIndex;
+    const uint8_t firstChangedPosition =
+        min(previousVisiblePosition, selectedVisiblePosition);
+    const uint8_t lastChangedPosition =
+        max(previousVisiblePosition, selectedVisiblePosition);
+
+    const int updateTop =
+        getListTop() + firstChangedPosition * getItemStride();
+    const int updateHeight =
+        (lastChangedPosition - firstChangedPosition) *
+            getItemStride() +
+        Theme::SELECT_LIST_ITEM_HEIGHT;
+
+    display.setPartialWindow(
+        contentLeft,
+        updateTop,
+        Theme::SELECT_LIST_MARKER_WIDTH,
+        updateHeight
+    );
+    display.firstPage();
+
+    do
+    {
+        display.fillRect(
+            contentLeft,
+            updateTop,
+            Theme::SELECT_LIST_MARKER_WIDTH,
+            updateHeight,
+            Theme::BACKGROUND_COLOR
+        );
+
+        const int selectedRowY =
+            getListTop() + selectedVisiblePosition * getItemStride();
+
+        display.fillRect(
+            contentLeft,
+            selectedRowY,
+            Theme::SELECT_LIST_MARKER_WIDTH,
+            Theme::SELECT_LIST_ITEM_HEIGHT,
+            Theme::TEXT_COLOR
+        );
+    }
+    while (display.nextPage());
 }

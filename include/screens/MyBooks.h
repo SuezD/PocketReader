@@ -17,5 +17,4 @@ public:
 private:
     ReaderPage& readerPage;
     SelectListState listState = {};
-    void redrawSelection(uint8_t previousIndex);
 };

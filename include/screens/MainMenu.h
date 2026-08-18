@@ -14,6 +14,4 @@ public:
 
 private:
     SelectListState listState = {};
-    void redrawSelection(uint8_t previousIndex);
 };
-
