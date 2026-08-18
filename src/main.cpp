@@ -41,11 +41,7 @@ namespace
 
         if (!getWifiManager().hasSavedNetwork())
         {
-            if (DevelopmentWifi::SSID[0] == '\0')
-            {
-                getWifiProvisioningPortal().start();
-            }
-            else
+            if (DevelopmentWifi::SSID[0] != '\0')
             {
                 getWifiManager().connect(
                     DevelopmentWifi::SSID,
@@ -158,6 +154,22 @@ namespace
         enterCurrentPage();
     }
 
+    void navigateBackTo(PageId destination)
+    {
+        exitCurrentPage();
+        while (
+            pageStackSize > 1 &&
+            pageStack[pageStackSize - 1] != destination
+        ) {
+            pageStackSize--;
+        }
+
+        if (pageStack[pageStackSize - 1] == destination)
+        {
+            enterCurrentPage();
+        }
+    }
+
     void applyNavigation(const NavigationRequest& request)
     {
         switch (request.mode)
@@ -170,6 +182,12 @@ namespace
                 break;
             case NavigationMode::Home:
                 navigateHome(request.destination);
+                break;
+            case NavigationMode::Pop:
+                navigateBack();
+                break;
+            case NavigationMode::PopTo:
+                navigateBackTo(request.destination);
                 break;
             case NavigationMode::None:
                 break;

@@ -17,7 +17,9 @@ enum class NavigationMode : uint8_t
     None,
     Push,
     Replace,
-    Home
+    Home,
+    Pop,
+    PopTo
 };
 
 struct NavigationRequest

@@ -5,6 +5,8 @@
 #include "screens/PlaceholderPages.h"
 #include "screens/Reader.h"
 #include "screens/WifiSettings.h"
+#include "screens/WifiNetworkPages.h"
+#include "wifi/SelectedWifiNetwork.h"
 
 namespace
 {
@@ -15,7 +17,11 @@ namespace
         "ADD BOOKS",
         "Book downloads are not implemented yet"
     );
-    WifiSettingsPage wiFiSettingsPage;
+    SelectedWifiNetwork selectedWifiNetwork;
+    WifiSettingsPage wiFiSettingsPage(selectedWifiNetwork);
+    WifiNetworkActionsPage wifiNetworkActionsPage(selectedWifiNetwork);
+    WifiForgetNetworkPage wifiForgetNetworkPage(selectedWifiNetwork);
+    WifiSetupPage wifiSetupPage;
 
     const PageDefinition PAGES[] = {
 #define PAGE(id, title, instance) { PageId::id, title, &instance },

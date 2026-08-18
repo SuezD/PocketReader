@@ -1,10 +1,12 @@
 #pragma once
 
 #include "navigation/Page.h"
+#include "wifi/SelectedWifiNetwork.h"
 
 class WifiSettingsPage : public Page
 {
 public:
+    explicit WifiSettingsPage(SelectedWifiNetwork& selectedNetwork);
     void draw(uint8_t batteryPercent) override;
     bool handleInput(const InputState& input) override;
     NavigationRequest select() override;
@@ -15,21 +17,13 @@ public:
     ) override;
 
 private:
-    enum class Action : uint8_t
-    {
-        StartPortal,
-        StopPortal,
-        ForgetNetwork
-    };
-
-    static constexpr uint8_t MAX_ACTION_COUNT = 2;
-
+    static constexpr uint8_t MAX_ITEMS = 6;
+    SelectedWifiNetwork& selectedNetwork;
     uint8_t selectedIndex = 0;
     uint8_t batteryPercent = 0;
 
-    uint8_t getActions(Action* actions, const char** labels) const;
-    String getDetails() const;
-    const char* getStatusLine() const;
+    uint8_t getItems(const char** items) const;
+    String getHeading() const;
     void redrawSelection(uint8_t previousIndex);
     void redrawContent();
 };

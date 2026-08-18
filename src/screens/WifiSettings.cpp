@@ -6,53 +6,33 @@
 #include "components/Footer.h"
 #include "components/Header.h"
 #include "components/PageContent.h"
-#include "wifi/WifiProvisioningService.h"
 #include "wifi/WifiService.h"
 
 namespace
 {
-    const char* getStateText(WifiState state)
-    {
-        switch (state)
-        {
-            case WifiState::Disconnected: return "Status: Disconnected";
-            case WifiState::Connecting: return "Status: Connecting";
-            case WifiState::Connected: return "Status: Connected";
-            case WifiState::Failed: return "Status: Failed - Retrying";
-        }
+    constexpr char ADD_NETWORK_LABEL[] = "Add New Network";
+}
 
-        return "Status: Unknown";
-    }
+WifiSettingsPage::WifiSettingsPage(SelectedWifiNetwork& nextSelectedNetwork)
+    : selectedNetwork(nextSelectedNetwork)
+{
 }
 
 void WifiSettingsPage::draw(uint8_t nextBatteryPercent)
 {
     batteryPercent = nextBatteryPercent;
-    Action actions[MAX_ACTION_COUNT];
-    const char* labels[MAX_ACTION_COUNT];
-    uint8_t actionCount = getActions(actions, labels);
-
-    if (selectedIndex >= actionCount)
-    {
-        selectedIndex = actionCount == 0 ? 0 : actionCount - 1;
-    }
-
-    const String details = getDetails();
+    const char* items[MAX_ITEMS];
+    const uint8_t itemCount = getItems(items);
+    if (selectedIndex >= itemCount) selectedIndex = itemCount - 1;
+    const String heading = getHeading();
 
     display.setFullWindow();
     display.firstPage();
-
     do
     {
         display.fillScreen(Theme::BACKGROUND_COLOR);
         drawHeader("WI-FI SETTINGS", batteryPercent);
-        drawMessage(
-            getStatusLine(),
-            details.c_str(),
-            labels,
-            actionCount,
-            selectedIndex
-        );
+        drawMessage(heading.c_str(), nullptr, items, itemCount, selectedIndex);
         drawFooter();
     }
     while (display.nextPage());
@@ -60,9 +40,8 @@ void WifiSettingsPage::draw(uint8_t nextBatteryPercent)
 
 bool WifiSettingsPage::handleInput(const InputState& input)
 {
-    Action actions[MAX_ACTION_COUNT];
-    const char* labels[MAX_ACTION_COUNT];
-    const uint8_t actionCount = getActions(actions, labels);
+    const char* items[MAX_ITEMS];
+    const uint8_t itemCount = getItems(items);
     const uint8_t previousIndex = selectedIndex;
 
     if (input.upPressed && !input.downPressed && selectedIndex > 0)
@@ -71,7 +50,7 @@ bool WifiSettingsPage::handleInput(const InputState& input)
     }
     else if (
         input.downPressed && !input.upPressed &&
-        selectedIndex + 1 < actionCount
+        selectedIndex + 1 < itemCount
     ) {
         selectedIndex++;
     }
@@ -80,46 +59,20 @@ bool WifiSettingsPage::handleInput(const InputState& input)
         return false;
     }
 
-    if (selectedIndex != previousIndex)
-    {
-        redrawSelection(previousIndex);
-    }
-
+    if (selectedIndex != previousIndex) redrawSelection(previousIndex);
     return true;
 }
 
 NavigationRequest WifiSettingsPage::select()
 {
-    Action actions[MAX_ACTION_COUNT];
-    const char* labels[MAX_ACTION_COUNT];
-    const uint8_t actionCount = getActions(actions, labels);
-
-    if (selectedIndex >= actionCount)
-    {
-        return noNavigation();
-    }
-
     WifiManager& wifi = getWifiManager();
-    WifiProvisioningPortal& portal = getWifiProvisioningPortal();
-
-    switch (actions[selectedIndex])
+    const uint8_t networkCount = wifi.getSavedNetworkCount();
+    if (selectedIndex < networkCount)
     {
-        case Action::StartPortal:
-            portal.start();
-            break;
-        case Action::StopPortal:
-            portal.stop();
-            break;
-        case Action::ForgetNetwork:
-            portal.stop();
-            wifi.forgetNetwork();
-            portal.start();
-            break;
+        selectedNetwork.select(wifi.getSavedNetworkName(selectedIndex));
+        return { NavigationMode::Push, PageId::WifiNetworkActions };
     }
-
-    selectedIndex = 0;
-    redrawContent();
-    return noNavigation();
+    return { NavigationMode::Push, PageId::WifiSetup };
 }
 
 bool WifiSettingsPage::handleConnectivityStateChange(
@@ -128,121 +81,83 @@ bool WifiSettingsPage::handleConnectivityStateChange(
     bool portalStateChanged
 )
 {
+    (void) portalStateChanged;
     batteryPercent = nextBatteryPercent;
     if (wifiStateChanged)
     {
         redrawHeaderStatus(batteryPercent);
-    }
-    if (wifiStateChanged || portalStateChanged)
-    {
         redrawContent();
     }
     return true;
 }
 
-uint8_t WifiSettingsPage::getActions(
-    Action* actions,
-    const char** labels
-) const {
-    WifiManager& wifi = getWifiManager();
-    uint8_t count = 0;
-
-    if (getWifiProvisioningPortal().isActive())
-    {
-        actions[count] = Action::StopPortal;
-        labels[count++] = "Stop Setup Portal";
-    }
-    else
-    {
-        actions[count] = Action::StartPortal;
-        labels[count++] = "Start Setup Portal";
-    }
-
-    if (wifi.hasSavedNetwork())
-    {
-        actions[count] = Action::ForgetNetwork;
-        labels[count++] = "Forget Network";
-    }
-
-    return count;
-}
-
-String WifiSettingsPage::getDetails() const
+uint8_t WifiSettingsPage::getItems(const char** items) const
 {
     WifiManager& wifi = getWifiManager();
-    WifiProvisioningPortal& portal = getWifiProvisioningPortal();
-    String details;
-
-    if (portal.isActive())
+    const uint8_t networkCount = wifi.getSavedNetworkCount();
+    for (uint8_t index = 0; index < networkCount; index++)
     {
-        details = "Setup: ";
-        details += wifi.getSetupNetworkName();
-        details += "\nPassword: ";
-        details += wifi.getSetupNetworkPassword();
-        details += "\nOpen: ";
-        details += wifi.getSetupAddress();
+        items[index] = wifi.getSavedNetworkName(index);
     }
-    else if (wifi.getNetworkName()[0] != '\0')
-    {
-        details = "Network: ";
-        details += wifi.getNetworkName();
-    }
-    else
-    {
-        details = "Network: None";
-    }
-
-    return details;
+    items[networkCount] = ADD_NETWORK_LABEL;
+    return networkCount + 1;
 }
 
-const char* WifiSettingsPage::getStatusLine() const
+String WifiSettingsPage::getHeading() const
 {
-    return getWifiProvisioningPortal().isActive()
-        ? "Setup Portal Active"
-        : getStateText(getWifiManager().getState());
+    WifiManager& wifi = getWifiManager();
+    String heading;
+
+    if (wifi.isConnected())
+    {
+        heading = "Connected\n";
+        heading += wifi.getNetworkName();
+    }
+    else if (wifi.getState() == WifiState::Connecting)
+    {
+        heading = "Connecting\n";
+        heading += wifi.getNetworkName();
+    }
+    else if (
+        wifi.getState() == WifiState::Failed &&
+        wifi.getNetworkName()[0] != '\0'
+    ) {
+        heading = "Could not connect\n";
+        heading += wifi.getNetworkName();
+    }
+
+    if (heading.length() > 0)
+    {
+        heading += '\n';
+    }
+    heading += "Known Networks";
+    return heading;
 }
 
 void WifiSettingsPage::redrawSelection(uint8_t previousIndex)
 {
-    Action actions[MAX_ACTION_COUNT];
-    const char* labels[MAX_ACTION_COUNT];
-    const uint8_t actionCount = getActions(actions, labels);
-    const String details = getDetails();
-
+    const char* items[MAX_ITEMS];
+    const uint8_t itemCount = getItems(items);
+    const String heading = getHeading();
     redrawMessageSelection(
-        getStatusLine(),
-        details.c_str(),
-        labels,
-        actionCount,
-        previousIndex,
-        selectedIndex
+        heading.c_str(), nullptr, items, itemCount,
+        previousIndex, selectedIndex
     );
 }
 
 void WifiSettingsPage::redrawContent()
 {
-    Action actions[MAX_ACTION_COUNT];
-    const char* labels[MAX_ACTION_COUNT];
-    const uint8_t actionCount = getActions(actions, labels);
+    const char* items[MAX_ITEMS];
+    const uint8_t itemCount = getItems(items);
+    if (selectedIndex >= itemCount) selectedIndex = itemCount - 1;
+    const String heading = getHeading();
 
-    if (selectedIndex >= actionCount)
-    {
-        selectedIndex = actionCount == 0 ? 0 : actionCount - 1;
-    }
-
-    const String details = getDetails();
     setPageContentPartialWindow();
     display.firstPage();
     do
     {
         clearPageContent();
-        drawMessage(
-            getStatusLine(),
-            details.c_str(),
-            labels,
-            actionCount,
-            selectedIndex
-        );
+        drawMessage(heading.c_str(), nullptr, items, itemCount, selectedIndex);
     }
     while (display.nextPage());
 }
