@@ -27,6 +27,27 @@ void WifiManager::begin()
     WiFi.persistent(false);
     WiFi.mode(WIFI_STA);
     setState(WifiState::Disconnected);
+
+    preferencesReady = preferences.begin("pocket-wifi", false);
+
+    if (!preferencesReady)
+    {
+        Serial.println(F("Could not open Wi-Fi preferences"));
+        return;
+    }
+
+    networkName = preferences.getString("ssid", "");
+    networkPassword = preferences.getString("password", "");
+    savedNetworkAvailable = networkName.length() > 0;
+
+    if (savedNetworkAvailable)
+    {
+        Serial.print(F("Loaded saved Wi-Fi network: "));
+        Serial.println(networkName);
+        shouldReconnect = true;
+        saveAfterConnection = false;
+        startConnection();
+    }
 }
 
 void WifiManager::connect(const char* ssid, const char* password)
@@ -40,6 +61,7 @@ void WifiManager::connect(const char* ssid, const char* password)
     networkName = ssid;
     networkPassword = password == nullptr ? "" : password;
     shouldReconnect = true;
+    saveAfterConnection = true;
     startConnection();
 }
 
@@ -51,6 +73,23 @@ void WifiManager::disconnect()
     setState(WifiState::Disconnected);
 }
 
+void WifiManager::forgetNetwork()
+{
+    disconnect();
+
+    if (preferencesReady)
+    {
+        preferences.remove("ssid");
+        preferences.remove("password");
+    }
+
+    networkName = "";
+    networkPassword = "";
+    savedNetworkAvailable = false;
+    saveAfterConnection = false;
+    Serial.println(F("Forgot saved Wi-Fi network"));
+}
+
 void WifiManager::update()
 {
     const unsigned long now = millis();
@@ -58,6 +97,11 @@ void WifiManager::update()
 
     if (wifiStatus == WL_CONNECTED)
     {
+        if (saveAfterConnection)
+        {
+            saveNetwork();
+        }
+
         setState(WifiState::Connected);
         return;
     }
@@ -104,6 +148,11 @@ bool WifiManager::isConnected() const
     return state == WifiState::Connected;
 }
 
+bool WifiManager::hasSavedNetwork() const
+{
+    return savedNetworkAvailable;
+}
+
 const char* WifiManager::getNetworkName() const
 {
     return networkName.c_str();
@@ -116,6 +165,33 @@ void WifiManager::startConnection()
     connectionStartedAt = millis();
     retryAt = 0;
     setState(WifiState::Connecting);
+}
+
+void WifiManager::saveNetwork()
+{
+    saveAfterConnection = false;
+
+    if (!preferencesReady)
+    {
+        Serial.println(F("Wi-Fi preferences are unavailable"));
+        return;
+    }
+
+    const size_t ssidBytes = preferences.putString("ssid", networkName);
+    preferences.putString(
+        "password",
+        networkPassword
+    );
+
+    if (ssidBytes == 0)
+    {
+        Serial.println(F("Could not save Wi-Fi credentials"));
+        return;
+    }
+
+    savedNetworkAvailable = true;
+    Serial.print(F("Saved Wi-Fi network: "));
+    Serial.println(networkName);
 }
 
 void WifiManager::setState(WifiState nextState)
@@ -137,4 +213,3 @@ void WifiManager::setState(WifiState nextState)
         Serial.println(WiFi.localIP());
     }
 }
-

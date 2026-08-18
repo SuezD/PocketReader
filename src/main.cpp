@@ -37,10 +37,14 @@ namespace
         initBookCache();
         initializeRegisteredPages();
         getWifiManager().begin();
-        getWifiManager().connect(
-            DevelopmentWifi::SSID,
-            DevelopmentWifi::PASSWORD
-        );
+
+        if (!getWifiManager().hasSavedNetwork())
+        {
+            getWifiManager().connect(
+                DevelopmentWifi::SSID,
+                DevelopmentWifi::PASSWORD
+            );
+        }
         // Later: read battery level.
         startupReady = true;
     }
