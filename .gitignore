@@ -4,4 +4,5 @@
 .vscode/launch.json
 .vscode/ipch
 include/wifi/DevelopmentWifi.h
+include/books/DevelopmentBookServer.h
 include/generated/WifiWebAssets.h

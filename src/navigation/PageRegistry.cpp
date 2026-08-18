@@ -1,8 +1,8 @@
 #include "navigation/PageRegistry.h"
 
+#include "screens/AddBooks.h"
 #include "screens/MainMenu.h"
 #include "screens/MyBooks.h"
-#include "screens/PlaceholderPages.h"
 #include "screens/Reader.h"
 #include "screens/WifiSettings.h"
 #include "screens/WifiNetworkPages.h"
@@ -13,10 +13,7 @@ namespace
     MainMenuPage mainMenuPage;
     ReaderPage continueReadingPage;
     MyBooksPage myBooksPage(continueReadingPage);
-    PlaceholderPage addBooksPage(
-        "ADD BOOKS",
-        "Book downloads are not implemented yet"
-    );
+    AddBooksPage addBooksPage;
     SelectedWifiNetwork selectedWifiNetwork;
     WifiSettingsPage wiFiSettingsPage(selectedWifiNetwork);
     WifiNetworkActionsPage wifiNetworkActionsPage(selectedWifiNetwork);
@@ -56,6 +53,14 @@ const NavigationRequest MY_BOOKS_EMPTY_OPTIONS[] = {
 
 const uint8_t MY_BOOKS_EMPTY_OPTION_COUNT =
     sizeof(MY_BOOKS_EMPTY_OPTIONS) / sizeof(MY_BOOKS_EMPTY_OPTIONS[0]);
+
+const NavigationRequest ADD_BOOKS_OFFLINE_OPTIONS[] = {
+    { NavigationMode::Push, PageId::WiFiSettings }
+};
+
+const uint8_t ADD_BOOKS_OFFLINE_OPTION_COUNT =
+    sizeof(ADD_BOOKS_OFFLINE_OPTIONS) /
+    sizeof(ADD_BOOKS_OFFLINE_OPTIONS[0]);
 
 const PageDefinition* findPage(PageId id)
 {

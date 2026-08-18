@@ -1,17 +1,15 @@
 #pragma once
 
 #include "navigation/Page.h"
+#include "books/BookSync.h"
 
-class PlaceholderPage : public Page
+class AddBooksPage : public Page
 {
 public:
-    PlaceholderPage(const char* header, const char* message);
-
     void draw(uint8_t batteryPercent) override;
     bool handleInput(const InputState& input) override;
+    NavigationRequest select() override;
 
 private:
-    const char* header;
-    const char* message;
+    BookSyncResult syncResult = BookSyncResult::NotConfigured;
 };
-

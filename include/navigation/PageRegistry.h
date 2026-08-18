@@ -27,3 +27,6 @@ extern const uint8_t READER_EMPTY_OPTION_COUNT;
 
 extern const NavigationRequest MY_BOOKS_EMPTY_OPTIONS[];
 extern const uint8_t MY_BOOKS_EMPTY_OPTION_COUNT;
+
+extern const NavigationRequest ADD_BOOKS_OFFLINE_OPTIONS[];
+extern const uint8_t ADD_BOOKS_OFFLINE_OPTION_COUNT;
