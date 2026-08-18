@@ -1,0 +1,85 @@
+body {
+  font-family: sans-serif;
+  max-width: 28rem;
+  margin: 3rem auto;
+  padding: 0 1rem;
+}
+
+label,
+input,
+button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+label {
+  margin-top: 1rem;
+}
+
+input,
+button {
+  font-size: 1rem;
+  padding: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+button {
+  margin-top: 1.5rem;
+}
+
+#scan {
+  margin-top: 0.5rem;
+  background: #eee;
+  border: 1px solid #999;
+}
+
+#scan-status,
+.network small,
+.empty {
+  color: #555;
+}
+
+#networks {
+  border: 1px solid #bbb;
+  max-height: 14rem;
+  overflow-y: auto;
+  margin-top: 0.35rem;
+}
+
+.network {
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid #ddd;
+  background: #fff;
+  text-align: left;
+}
+
+.network:last-child {
+  border-bottom: 0;
+}
+
+.network:hover,
+.network:focus {
+  background: #eee;
+}
+
+.network small {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.empty {
+  padding: 0.75rem;
+}
+
+#retry {
+  display: none;
+  margin-top: 1.5rem;
+  padding: 0.75rem;
+  background: #222;
+  color: #fff;
+  text-decoration: none;
+  text-align: center;
+}
+

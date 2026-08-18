@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pocket Reader Wi-Fi</title>
+  <link rel="stylesheet" href="/setup.css">
+</head>
+<body>
+  <h1>Pocket Reader Wi-Fi</h1>
+  <form method="post" action="/connect">
+    <label for="ssid">Network name</label>
+    <input id="ssid" name="ssid" maxlength="32" required autocomplete="off" placeholder="Type to filter or enter a hidden network">
+    <div id="networks" aria-label="Nearby networks"></div>
+    <button id="scan" type="button">Scan Again</button>
+    <p id="scan-status">Scanning for nearby networks...</p>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" maxlength="63">
+    <button type="submit">Connect</button>
+  </form>
+  <script src="/setup.js"></script>
+</body>
+</html>
+

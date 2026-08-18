@@ -19,11 +19,14 @@ private:
     WebServer server;
     bool active = false;
     bool connectionSubmitted = false;
+    bool scanStarted = false;
     unsigned long connectedAt = 0;
 
     void handleHome();
     void handleConnect();
+    void handleNetworks();
+    void handleRescan();
     void handleStatus();
     void handleNotFound();
+    void startScan();
 };
-
