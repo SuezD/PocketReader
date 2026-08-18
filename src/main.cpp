@@ -32,6 +32,7 @@ namespace
     void performStartupTasks()
     {
         initBookCache();
+        initializeRegisteredPages();
         // Later: read battery level.
         startupReady = true;
     }

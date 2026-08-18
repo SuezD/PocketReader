@@ -22,6 +22,7 @@ public:
     void draw(uint8_t batteryPercent) override;
     bool handleInput(const InputState& input) override;
     NavigationRequest select() override;
+    void onStartup() override;
     void onEnter() override;
     void onExit() override;
 

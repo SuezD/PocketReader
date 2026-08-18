@@ -11,6 +11,7 @@ namespace
     constexpr char READING_PROGRESS_PATH[] = "/reading-progress.txt";
     constexpr char READING_PROGRESS_TEMP_PATH[] = "/reading-progress.tmp";
     constexpr char READING_PROGRESS_BACKUP_PATH[] = "/reading-progress.bak";
+    constexpr char CURRENT_BOOK_ENTRY[] = "@current";
     constexpr uint8_t MAX_BOOK_COUNT = 16;
     constexpr size_t MAX_BOOK_ID_LENGTH = 31;
     constexpr size_t MAX_BOOK_TITLE_LENGTH = 63;
@@ -26,6 +27,7 @@ namespace
     char bookPaths[MAX_BOOK_COUNT][MAX_BOOK_PATH_LENGTH + 1] = {};
     uint16_t savedPages[MAX_BOOK_COUNT] = {};
     uint8_t bookCount = 0;
+    int currentBookIndex = -1;
     bool progressDirty = false;
 
     bool fileSystemReady = false;
@@ -160,6 +162,8 @@ namespace
 
     void loadReadingProgress()
     {
+        currentBookIndex = -1;
+
         if (
             !LittleFS.exists(READING_PROGRESS_PATH) &&
             LittleFS.exists(READING_PROGRESS_BACKUP_PATH)
@@ -188,6 +192,11 @@ namespace
             );
             entry[entryLength] = '\0';
 
+            if (entryLength > 0 && entry[entryLength - 1] == '\r')
+            {
+                entry[entryLength - 1] = '\0';
+            }
+
             char* separator = strchr(entry, '\t');
 
             if (separator == nullptr)
@@ -196,6 +205,21 @@ namespace
             }
 
             *separator = '\0';
+
+            if (strcmp(entry, CURRENT_BOOK_ENTRY) == 0)
+            {
+                for (uint8_t index = 0; index < bookCount; index++)
+                {
+                    if (strcmp(separator + 1, books[index].id) == 0)
+                    {
+                        currentBookIndex = index;
+                        break;
+                    }
+                }
+
+                continue;
+            }
+
             const uint32_t page = strtoul(separator + 1, nullptr, 10);
 
             if (page > UINT16_MAX)
@@ -224,7 +248,10 @@ namespace
             return false;
         }
 
-        LittleFS.remove(READING_PROGRESS_TEMP_PATH);
+        if (LittleFS.exists(READING_PROGRESS_TEMP_PATH))
+        {
+            LittleFS.remove(READING_PROGRESS_TEMP_PATH);
+        }
         File progressFile = LittleFS.open(
             READING_PROGRESS_TEMP_PATH,
             "w"
@@ -236,6 +263,13 @@ namespace
             return false;
         }
 
+        if (currentBookIndex >= 0 && currentBookIndex < bookCount)
+        {
+            progressFile.print(CURRENT_BOOK_ENTRY);
+            progressFile.print('\t');
+            progressFile.println(books[currentBookIndex].id);
+        }
+
         for (uint8_t index = 0; index < bookCount; index++)
         {
             progressFile.print(books[index].id);
@@ -245,7 +279,10 @@ namespace
 
         progressFile.close();
 
-        LittleFS.remove(READING_PROGRESS_BACKUP_PATH);
+        if (LittleFS.exists(READING_PROGRESS_BACKUP_PATH))
+        {
+            LittleFS.remove(READING_PROGRESS_BACKUP_PATH);
+        }
 
         if (
             LittleFS.exists(READING_PROGRESS_PATH) &&
@@ -254,7 +291,10 @@ namespace
                 READING_PROGRESS_BACKUP_PATH
             )
         ) {
-            LittleFS.remove(READING_PROGRESS_TEMP_PATH);
+            if (LittleFS.exists(READING_PROGRESS_TEMP_PATH))
+            {
+                LittleFS.remove(READING_PROGRESS_TEMP_PATH);
+            }
             Serial.println(F("Could not back up reading progress"));
             return false;
         }
@@ -271,7 +311,10 @@ namespace
             return false;
         }
 
-        LittleFS.remove(READING_PROGRESS_BACKUP_PATH);
+        if (LittleFS.exists(READING_PROGRESS_BACKUP_PATH))
+        {
+            LittleFS.remove(READING_PROGRESS_BACKUP_PATH);
+        }
         return true;
     }
 }
@@ -323,6 +366,27 @@ void saveCachedBookPage(const CachedBook& book, uint16_t page)
     }
 
     savedPages[index] = page;
+    progressDirty = true;
+}
+
+const CachedBook* getLastOpenedCachedBook()
+{
+    return
+        currentBookIndex >= 0 && currentBookIndex < bookCount
+            ? &books[currentBookIndex]
+            : nullptr;
+}
+
+void setLastOpenedCachedBook(const CachedBook& book)
+{
+    const int index = getBookIndex(book);
+
+    if (index < 0 || index == currentBookIndex)
+    {
+        return;
+    }
+
+    currentBookIndex = index;
     progressDirty = true;
 }
 

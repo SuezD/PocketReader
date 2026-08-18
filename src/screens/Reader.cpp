@@ -133,6 +133,8 @@ bool ReaderPage::open(
     if (currentBook != nullptr)
     {
         saveCachedBookPage(*currentBook, currentPage);
+        setLastOpenedCachedBook(*currentBook);
+        flushCachedBookProgress();
     }
 
     return true;
@@ -235,6 +237,20 @@ NavigationRequest ReaderPage::select()
     }
 
     return READER_EMPTY_OPTIONS[selectedEmptyOption];
+}
+
+void ReaderPage::onStartup()
+{
+    const CachedBook* lastOpenedBook = getLastOpenedCachedBook();
+
+    if (lastOpenedBook != nullptr)
+    {
+        if (!open(lastOpenedBook, getCachedBookPage(*lastOpenedBook)))
+        {
+            Serial.print(F("Could not reopen current book: "));
+            Serial.println(lastOpenedBook->id);
+        }
+    }
 }
 
 void ReaderPage::onEnter()

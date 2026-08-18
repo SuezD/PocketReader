@@ -15,6 +15,10 @@ public:
         return noNavigation();
     }
 
+    virtual void onStartup()
+    {
+    }
+
     virtual void onEnter()
     {
     }

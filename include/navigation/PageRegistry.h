@@ -11,6 +11,7 @@ struct PageDefinition
 };
 
 const PageDefinition* findPage(PageId id);
+void initializeRegisteredPages();
 const char* getPageTitle(PageId id);
 void getNavigationOptionLabels(
     const NavigationRequest* options,

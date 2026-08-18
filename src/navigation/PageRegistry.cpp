@@ -66,6 +66,17 @@ const PageDefinition* findPage(PageId id)
     return nullptr;
 }
 
+void initializeRegisteredPages()
+{
+    for (const PageDefinition& page : PAGES)
+    {
+        if (page.page != nullptr)
+        {
+            page.page->onStartup();
+        }
+    }
+}
+
 const char* getPageTitle(PageId id)
 {
     const PageDefinition* page = findPage(id);
