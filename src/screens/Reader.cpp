@@ -21,66 +21,61 @@ namespace
     constexpr int READER_PARTIAL_UPDATE_TOP =
         Theme::HEADER_HEIGHT + 1;
 
-    const CachedBook* currentBook = nullptr;
-    ReaderDocument currentDocument = {};
-    uint16_t currentPage = 0;
-    uint8_t selectedEmptyOption = 0;
-    bool readerNeedsFullRefresh = true;
-    uint8_t partialTurnsSinceFullRefresh = 0;
-    uint32_t* pageStartOffsets = nullptr;
-    uint16_t pageStartCount = 0;
-    uint16_t pageStartCapacity = 0;
-    bool pageIndexReady = false;
-
-    bool hasOpenDocument()
-    {
-        return
-            currentDocument.byteLength > 0 &&
-            currentDocument.readCharacter != nullptr;
-    }
-
-    char readCharacter(uint32_t position)
-    {
-        if (!hasOpenDocument() || position >= currentDocument.byteLength)
-        {
-            return '\0';
-        }
-
-        return currentDocument.readCharacter(
-            currentDocument.sourceContext,
-            position
-        );
-    }
-
     bool isInlineWhitespace(char character)
     {
         return character == ' ' || character == '\t';
     }
+}
 
-    uint8_t getMaximumCharactersPerLine()
+ReaderPage::~ReaderPage()
+{
+    clearPageIndex();
+}
+
+bool ReaderPage::hasOpenDocument() const
+{
+    return
+        currentDocument.byteLength > 0 &&
+        currentDocument.readCharacter != nullptr;
+}
+
+char ReaderPage::readCharacter(uint32_t position) const
+{
+    if (!hasOpenDocument() || position >= currentDocument.byteLength)
     {
-        const uint8_t glyphIndex =
-            'M' - Theme::BODY_FONT->first;
-        const uint8_t characterWidth =
-            Theme::BODY_FONT->glyph[glyphIndex].xAdvance;
-
-        const int contentWidth =
-            display.width() - (Theme::PAGE_MARGIN * 2);
-
-        uint8_t characterCount = contentWidth / characterWidth;
-
-        if (characterCount >= MAX_LINE_LENGTH)
-        {
-            characterCount = MAX_LINE_LENGTH - 1;
-        }
-
-        return characterCount;
+        return '\0';
     }
 
-    uint32_t readNextLine(
-        uint32_t source,
-        char* output
-    ) {
+    return currentDocument.readCharacter(
+        currentDocument.sourceContext,
+        position
+    );
+}
+
+uint8_t ReaderPage::getMaximumCharactersPerLine() const
+{
+    const uint8_t glyphIndex =
+        'M' - Theme::BODY_FONT->first;
+    const uint8_t characterWidth =
+        Theme::BODY_FONT->glyph[glyphIndex].xAdvance;
+
+    const int contentWidth =
+        display.width() - (Theme::PAGE_MARGIN * 2);
+
+    uint8_t characterCount = contentWidth / characterWidth;
+
+    if (characterCount >= MAX_LINE_LENGTH)
+    {
+        characterCount = MAX_LINE_LENGTH - 1;
+    }
+
+    return characterCount;
+}
+
+uint32_t ReaderPage::readNextLine(
+    uint32_t source,
+    char* output
+) const {
         output[0] = '\0';
 
         if (source >= currentDocument.byteLength)
@@ -176,7 +171,7 @@ namespace
         return position;
     }
 
-    uint8_t getLinesPerPage()
+uint8_t ReaderPage::getLinesPerPage() const
     {
         const int contentHeight =
             display.height() -
@@ -187,7 +182,7 @@ namespace
         return contentHeight / READER_LINE_HEIGHT;
     }
 
-    uint32_t getNextPageStart(uint32_t pageStart)
+uint32_t ReaderPage::getNextPageStart(uint32_t pageStart) const
     {
         char line[MAX_LINE_LENGTH];
         uint32_t position = pageStart;
@@ -204,7 +199,7 @@ namespace
         return position;
     }
 
-    void clearPageIndex()
+void ReaderPage::clearPageIndex()
     {
         free(pageStartOffsets);
         pageStartOffsets = nullptr;
@@ -213,7 +208,7 @@ namespace
         pageIndexReady = false;
     }
 
-    bool addPageStart(uint32_t pageStart)
+bool ReaderPage::addPageStart(uint32_t pageStart)
     {
         if (pageStartCount == UINT16_MAX)
         {
@@ -252,7 +247,7 @@ namespace
         return true;
     }
 
-    bool buildPageIndex()
+bool ReaderPage::buildPageIndex()
     {
         clearPageIndex();
 
@@ -289,7 +284,7 @@ namespace
         return true;
     }
 
-    uint32_t findPageStartWithoutIndex(uint16_t pageIndex)
+uint32_t ReaderPage::findPageStartWithoutIndex(uint16_t pageIndex) const
     {
         uint32_t pageStart = 0;
 
@@ -304,7 +299,7 @@ namespace
         return pageStart;
     }
 
-    uint16_t countPagesWithoutIndex()
+uint16_t ReaderPage::countPagesWithoutIndex() const
     {
         if (!hasOpenDocument())
         {
@@ -329,7 +324,7 @@ namespace
         }
     }
 
-    uint32_t getPageStart(uint16_t pageIndex)
+uint32_t ReaderPage::getPageStart(uint16_t pageIndex) const
     {
         if (pageIndexReady && pageIndex < pageStartCount)
         {
@@ -339,7 +334,7 @@ namespace
         return findPageStartWithoutIndex(pageIndex);
     }
 
-    uint16_t getPageCount()
+uint16_t ReaderPage::getPageCount() const
     {
         if (pageIndexReady)
         {
@@ -349,7 +344,7 @@ namespace
         return countPagesWithoutIndex();
     }
 
-    void drawCurrentTextPage()
+void ReaderPage::drawCurrentTextPage() const
     {
         const int contentTop =
             Theme::HEADER_HEIGHT + READER_VERTICAL_PADDING;
@@ -378,7 +373,6 @@ namespace
             }
         }
     }
-}
 
 void ReaderPage::open(
     const CachedBook* book,
@@ -412,7 +406,7 @@ void ReaderPage::open(
     }
 }
 
-bool moveReaderPreviousPage()
+bool ReaderPage::movePreviousPage()
 {
     if (currentBook == nullptr || currentPage == 0)
     {
@@ -424,7 +418,7 @@ bool moveReaderPreviousPage()
     return true;
 }
 
-bool moveReaderNextPage()
+bool ReaderPage::moveNextPage()
 {
     const uint16_t pageCount = getPageCount();
 
@@ -472,11 +466,11 @@ bool ReaderPage::handleInput(const InputState& input)
 
     if (input.upPressed && !input.downPressed)
     {
-        pageChanged = moveReaderPreviousPage();
+        pageChanged = movePreviousPage();
     }
     else if (input.downPressed && !input.upPressed)
     {
-        pageChanged = moveReaderNextPage();
+        pageChanged = moveNextPage();
     }
 
     if (pageChanged)
