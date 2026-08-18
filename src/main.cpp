@@ -92,6 +92,12 @@ namespace
         }
 
         pageStackSize--;
+
+        if (getCurrentPage() == Page::Reader)
+        {
+            requestReaderFullRefresh();
+        }
+
         drawCurrentPage();
     }
 
@@ -134,6 +140,22 @@ namespace
                 navigateTo(Page::Reader);
                 break;
             }
+
+            case Page::Reader:
+                if (!readerHasOpenDocument())
+                {
+                    switch (getSelectedReaderEmptyOption())
+                    {
+                        case ReaderEmptyOption::MyBooks:
+                            replaceCurrentPage(Page::MyBooks);
+                            break;
+
+                        case ReaderEmptyOption::AddBooks:
+                            // Wi-Fi book download is not implemented yet.
+                            break;
+                    }
+                }
+                break;
 
             default:
                 break;
@@ -255,6 +277,30 @@ namespace
 
     void handleReaderInput(const InputState& input)
     {
+        if (!readerHasOpenDocument())
+        {
+            if (input.upPressed && !input.downPressed)
+            {
+                selectTapPending = false;
+
+                if (moveReaderEmptySelectionPrevious())
+                {
+                    drawReader(85);
+                }
+            }
+            else if (input.downPressed && !input.upPressed)
+            {
+                selectTapPending = false;
+
+                if (moveReaderEmptySelectionNext())
+                {
+                    drawReader(85);
+                }
+            }
+
+            return;
+        }
+
         if (input.upPressed && !input.downPressed)
         {
             selectTapPending = false;

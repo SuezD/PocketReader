@@ -23,6 +23,7 @@ namespace
     const CachedBook* currentBook = nullptr;
     ReaderDocument currentDocument = {};
     uint16_t currentPage = 0;
+    uint8_t selectedEmptyOption = 0;
     bool readerNeedsFullRefresh = true;
     uint8_t partialTurnsSinceFullRefresh = 0;
     uint32_t* pageStartOffsets = nullptr;
@@ -387,6 +388,7 @@ void openReader(
     currentBook = book;
     currentDocument = document;
     currentPage = 0;
+    selectedEmptyOption = 0;
     readerNeedsFullRefresh = true;
     partialTurnsSinceFullRefresh = 0;
 
@@ -433,6 +435,42 @@ bool moveReaderNextPage()
     currentPage++;
     saveCachedBookPage(*currentBook, currentPage);
     return true;
+}
+
+bool readerHasOpenDocument()
+{
+    return hasOpenDocument();
+}
+
+bool moveReaderEmptySelectionPrevious()
+{
+    if (hasOpenDocument() || selectedEmptyOption == 0)
+    {
+        return false;
+    }
+
+    selectedEmptyOption--;
+    return true;
+}
+
+bool moveReaderEmptySelectionNext()
+{
+    constexpr uint8_t EMPTY_OPTION_COUNT = 2;
+
+    if (
+        hasOpenDocument() ||
+        selectedEmptyOption + 1 >= EMPTY_OPTION_COUNT
+    ) {
+        return false;
+    }
+
+    selectedEmptyOption++;
+    return true;
+}
+
+ReaderEmptyOption getSelectedReaderEmptyOption()
+{
+    return static_cast<ReaderEmptyOption>(selectedEmptyOption);
 }
 
 void requestReaderFullRefresh()
@@ -492,7 +530,13 @@ void drawReader(uint8_t batteryPercent)
                 drawHeader("READER", batteryPercent);
             }
 
-            drawMessage("Nothing in Progress", nullptr, options, 2, 0);
+            drawMessage(
+                "Nothing in Progress",
+                nullptr,
+                options,
+                2,
+                selectedEmptyOption
+            );
             drawFooter();
             continue;
         }
