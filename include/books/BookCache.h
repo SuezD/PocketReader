@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include <FS.h>
 
+#include "books/TextDocument.h"
+
 struct CachedBook
 {
     const char* id;
@@ -10,7 +12,7 @@ struct CachedBook
     const char* filePath;
 };
 
-class ReaderDocument
+class ReaderDocument : public TextDocument
 {
 public:
     ReaderDocument() = default;
@@ -21,9 +23,9 @@ public:
 
     bool open(const CachedBook& book);
     void close();
-    bool isOpen() const;
-    uint32_t length() const;
-    char readCharacter(uint32_t position) const;
+    bool isOpen() const override;
+    uint32_t length() const override;
+    char readCharacter(uint32_t position) const override;
 
 private:
     static constexpr size_t READ_BUFFER_SIZE = 96;

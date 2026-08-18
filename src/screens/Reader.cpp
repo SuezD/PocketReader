@@ -1,7 +1,6 @@
 #include "screens/Reader.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "Display.h"
 #include "Theme.h"
@@ -17,35 +16,14 @@ namespace
     constexpr uint8_t READER_TEXT_BASELINE = 13;
     constexpr uint8_t MAX_LINE_LENGTH = 48;
     constexpr uint8_t PARTIAL_TURNS_BEFORE_FULL_REFRESH = 12;
-    constexpr uint16_t INITIAL_PAGE_INDEX_CAPACITY = 16;
     constexpr int READER_PARTIAL_UPDATE_TOP =
         Theme::HEADER_HEIGHT + 1;
-
-    bool isInlineWhitespace(char character)
-    {
-        return character == ' ' || character == '\t';
-    }
-}
-
-ReaderPage::~ReaderPage()
-{
-    clearPageIndex();
 }
 
 bool ReaderPage::hasOpenDocument() const
 {
     return
         currentDocument.isOpen();
-}
-
-char ReaderPage::readCharacter(uint32_t position) const
-{
-    if (!hasOpenDocument() || position >= currentDocument.length())
-    {
-        return '\0';
-    }
-
-    return currentDocument.readCharacter(position);
 }
 
 uint8_t ReaderPage::getMaximumCharactersPerLine() const
@@ -68,105 +46,6 @@ uint8_t ReaderPage::getMaximumCharactersPerLine() const
     return characterCount;
 }
 
-uint32_t ReaderPage::readNextLine(
-    uint32_t source,
-    char* output
-) const {
-        output[0] = '\0';
-
-        if (source >= currentDocument.length())
-        {
-            return source;
-        }
-
-        if (readCharacter(source) == '\n')
-        {
-            return source + 1;
-        }
-
-        while (
-            source < currentDocument.length() &&
-            isInlineWhitespace(readCharacter(source))
-        )
-        {
-            source++;
-        }
-
-        const uint8_t maximumCharacters =
-            getMaximumCharactersPerLine();
-        uint8_t outputLength = 0;
-        uint32_t position = source;
-
-        while (position < currentDocument.length())
-        {
-            if (readCharacter(position) == '\n')
-            {
-                output[outputLength] = '\0';
-                return position + 1;
-            }
-
-            if (isInlineWhitespace(readCharacter(position)))
-            {
-                position++;
-                continue;
-            }
-
-            const uint32_t wordStart = position;
-            uint8_t wordLength = 0;
-
-            while (
-                position < currentDocument.length() &&
-                readCharacter(position) != '\n' &&
-                !isInlineWhitespace(readCharacter(position))
-            ) {
-                wordLength++;
-                position++;
-            }
-
-            const uint8_t separatorLength =
-                outputLength == 0 ? 0 : 1;
-
-            if (
-                outputLength > 0 &&
-                outputLength + separatorLength + wordLength >
-                    maximumCharacters
-            ) {
-                output[outputLength] = '\0';
-                return wordStart;
-            }
-
-            if (outputLength == 0 && wordLength > maximumCharacters)
-            {
-                for (
-                    uint8_t index = 0;
-                    index < maximumCharacters;
-                    index++
-                ) {
-                    output[index] = readCharacter(wordStart + index);
-                }
-
-                output[maximumCharacters] = '\0';
-                return wordStart + maximumCharacters;
-            }
-
-            if (separatorLength > 0)
-            {
-                output[outputLength] = ' ';
-                outputLength++;
-            }
-
-            for (uint8_t index = 0; index < wordLength; index++)
-            {
-                output[outputLength] =
-                    readCharacter(wordStart + index);
-                outputLength++;
-            }
-        }
-
-        output[outputLength] = '\0';
-        return position;
-    }
-
 uint8_t ReaderPage::getLinesPerPage() const
     {
         const int contentHeight =
@@ -178,168 +57,6 @@ uint8_t ReaderPage::getLinesPerPage() const
         return contentHeight / READER_LINE_HEIGHT;
     }
 
-uint32_t ReaderPage::getNextPageStart(uint32_t pageStart) const
-    {
-        char line[MAX_LINE_LENGTH];
-        uint32_t position = pageStart;
-
-        for (
-            uint8_t lineIndex = 0;
-            lineIndex < getLinesPerPage() &&
-                position < currentDocument.length();
-            lineIndex++
-        ) {
-            position = readNextLine(position, line);
-        }
-
-        return position;
-    }
-
-void ReaderPage::clearPageIndex()
-    {
-        free(pageStartOffsets);
-        pageStartOffsets = nullptr;
-        pageStartCount = 0;
-        pageStartCapacity = 0;
-        pageIndexReady = false;
-    }
-
-bool ReaderPage::addPageStart(uint32_t pageStart)
-    {
-        if (pageStartCount == UINT16_MAX)
-        {
-            return false;
-        }
-
-        if (pageStartCount == pageStartCapacity)
-        {
-            uint32_t expandedCapacity =
-                pageStartCapacity == 0 ?
-                    INITIAL_PAGE_INDEX_CAPACITY :
-                    static_cast<uint32_t>(pageStartCapacity) * 2;
-
-            if (expandedCapacity > UINT16_MAX)
-            {
-                expandedCapacity = UINT16_MAX;
-            }
-
-            const size_t expandedBytes =
-                expandedCapacity * sizeof(*pageStartOffsets);
-            void* expandedOffsets =
-                realloc(pageStartOffsets, expandedBytes);
-
-            if (expandedOffsets == nullptr)
-            {
-                return false;
-            }
-
-            pageStartOffsets =
-                static_cast<uint32_t*>(expandedOffsets);
-            pageStartCapacity = expandedCapacity;
-        }
-
-        pageStartOffsets[pageStartCount] = pageStart;
-        pageStartCount++;
-        return true;
-    }
-
-bool ReaderPage::buildPageIndex()
-    {
-        clearPageIndex();
-
-        if (!hasOpenDocument() || !addPageStart(0))
-        {
-            return false;
-        }
-
-        uint32_t pageStart = 0;
-
-        while (pageStart < currentDocument.length())
-        {
-            const uint32_t nextPageStart =
-                getNextPageStart(pageStart);
-
-            if (nextPageStart >= currentDocument.length())
-            {
-                pageIndexReady = true;
-                return true;
-            }
-
-            if (
-                nextPageStart <= pageStart ||
-                !addPageStart(nextPageStart)
-            ) {
-                clearPageIndex();
-                return false;
-            }
-
-            pageStart = nextPageStart;
-        }
-
-        pageIndexReady = true;
-        return true;
-    }
-
-uint32_t ReaderPage::findPageStartWithoutIndex(uint16_t pageIndex) const
-    {
-        uint32_t pageStart = 0;
-
-        for (
-            uint16_t index = 0;
-            index < pageIndex && pageStart < currentDocument.length();
-            index++
-        ) {
-            pageStart = getNextPageStart(pageStart);
-        }
-
-        return pageStart;
-    }
-
-uint16_t ReaderPage::countPagesWithoutIndex() const
-    {
-        if (!hasOpenDocument())
-        {
-            return 0;
-        }
-
-        uint16_t count = 1;
-        uint32_t pageStart = 0;
-
-        while (true)
-        {
-            const uint32_t nextPageStart =
-                getNextPageStart(pageStart);
-
-            if (nextPageStart >= currentDocument.length())
-            {
-                return count;
-            }
-
-            count++;
-            pageStart = nextPageStart;
-        }
-    }
-
-uint32_t ReaderPage::getPageStart(uint16_t pageIndex) const
-    {
-        if (pageIndexReady && pageIndex < pageStartCount)
-        {
-            return pageStartOffsets[pageIndex];
-        }
-
-        return findPageStartWithoutIndex(pageIndex);
-    }
-
-uint16_t ReaderPage::getPageCount() const
-    {
-        if (pageIndexReady)
-        {
-            return pageStartCount;
-        }
-
-        return countPagesWithoutIndex();
-    }
-
 void ReaderPage::drawCurrentTextPage() const
     {
         const int contentTop =
@@ -349,7 +66,7 @@ void ReaderPage::drawCurrentTextPage() const
             Theme::FOOTER_HEIGHT - READER_VERTICAL_PADDING;
 
         char line[MAX_LINE_LENGTH];
-        uint32_t position = getPageStart(currentPage);
+        uint32_t position = paginator.pageStart(currentPage);
 
         display.setFont(Theme::BODY_FONT);
         display.setTextColor(Theme::TEXT_COLOR);
@@ -360,7 +77,11 @@ void ReaderPage::drawCurrentTextPage() const
                 position < currentDocument.length();
             baseline += READER_LINE_HEIGHT
         ) {
-            position = readNextLine(position, line);
+            position = paginator.nextLine(
+                position,
+                line,
+                sizeof(line)
+            );
 
             if (line[0] != '\0')
             {
@@ -375,7 +96,7 @@ bool ReaderPage::open(
     uint16_t savedPage
 )
 {
-    clearPageIndex();
+    paginator.clear();
     currentDocument.close();
     currentBook = book;
     currentPage = 0;
@@ -389,12 +110,16 @@ bool ReaderPage::open(
         return false;
     }
 
-    if (!buildPageIndex())
+    if (!paginator.configure(
+        currentDocument,
+        getMaximumCharactersPerLine(),
+        getLinesPerPage()
+    ))
     {
         Serial.println(F("Reader page index unavailable"));
     }
 
-    const uint16_t pageCount = getPageCount();
+    const uint16_t pageCount = paginator.pageCount();
 
     if (pageCount > 0)
     {
@@ -424,7 +149,7 @@ bool ReaderPage::movePreviousPage()
 
 bool ReaderPage::moveNextPage()
 {
-    const uint16_t pageCount = getPageCount();
+    const uint16_t pageCount = paginator.pageCount();
 
     if (pageCount == 0 || currentPage + 1 >= pageCount)
     {
@@ -579,7 +304,7 @@ void ReaderPage::draw(uint8_t batteryPercent)
             sizeof(pageText),
             "Page %u of %u",
             currentPage + 1,
-            getPageCount()
+            paginator.pageCount()
         );
 
         drawFooter("Chapter 1", pageText);
