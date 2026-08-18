@@ -9,6 +9,8 @@ namespace
 {
     constexpr char BOOK_MANIFEST_PATH[] = "/books.tsv";
     constexpr char READING_PROGRESS_PATH[] = "/reading-progress.txt";
+    constexpr char READING_PROGRESS_TEMP_PATH[] = "/reading-progress.tmp";
+    constexpr char READING_PROGRESS_BACKUP_PATH[] = "/reading-progress.bak";
     constexpr uint8_t MAX_BOOK_COUNT = 16;
     constexpr size_t MAX_BOOK_ID_LENGTH = 31;
     constexpr size_t MAX_BOOK_TITLE_LENGTH = 63;
@@ -24,6 +26,7 @@ namespace
     char bookPaths[MAX_BOOK_COUNT][MAX_BOOK_PATH_LENGTH + 1] = {};
     uint16_t savedPages[MAX_BOOK_COUNT] = {};
     uint8_t bookCount = 0;
+    bool progressDirty = false;
 
     bool fileSystemReady = false;
     bool copyManifestField(
@@ -157,6 +160,16 @@ namespace
 
     void loadReadingProgress()
     {
+        if (
+            !LittleFS.exists(READING_PROGRESS_PATH) &&
+            LittleFS.exists(READING_PROGRESS_BACKUP_PATH)
+        ) {
+            LittleFS.rename(
+                READING_PROGRESS_BACKUP_PATH,
+                READING_PROGRESS_PATH
+            );
+        }
+
         File progressFile = LittleFS.open(READING_PROGRESS_PATH, "r");
 
         if (!progressFile)
@@ -201,21 +214,26 @@ namespace
         }
 
         progressFile.close();
+        progressDirty = false;
     }
 
-    void writeReadingProgress()
+    bool writeReadingProgress()
     {
         if (!fileSystemReady)
         {
-            return;
+            return false;
         }
 
-        File progressFile = LittleFS.open(READING_PROGRESS_PATH, "w");
+        LittleFS.remove(READING_PROGRESS_TEMP_PATH);
+        File progressFile = LittleFS.open(
+            READING_PROGRESS_TEMP_PATH,
+            "w"
+        );
 
         if (!progressFile)
         {
             Serial.println(F("Could not save reading progress"));
-            return;
+            return false;
         }
 
         for (uint8_t index = 0; index < bookCount; index++)
@@ -226,6 +244,35 @@ namespace
         }
 
         progressFile.close();
+
+        LittleFS.remove(READING_PROGRESS_BACKUP_PATH);
+
+        if (
+            LittleFS.exists(READING_PROGRESS_PATH) &&
+            !LittleFS.rename(
+                READING_PROGRESS_PATH,
+                READING_PROGRESS_BACKUP_PATH
+            )
+        ) {
+            LittleFS.remove(READING_PROGRESS_TEMP_PATH);
+            Serial.println(F("Could not back up reading progress"));
+            return false;
+        }
+
+        if (!LittleFS.rename(
+            READING_PROGRESS_TEMP_PATH,
+            READING_PROGRESS_PATH
+        )) {
+            LittleFS.rename(
+                READING_PROGRESS_BACKUP_PATH,
+                READING_PROGRESS_PATH
+            );
+            Serial.println(F("Could not replace reading progress"));
+            return false;
+        }
+
+        LittleFS.remove(READING_PROGRESS_BACKUP_PATH);
+        return true;
     }
 }
 
@@ -276,8 +323,23 @@ void saveCachedBookPage(const CachedBook& book, uint16_t page)
     }
 
     savedPages[index] = page;
+    progressDirty = true;
+}
 
-    writeReadingProgress();
+bool flushCachedBookProgress()
+{
+    if (!progressDirty)
+    {
+        return true;
+    }
+
+    if (!writeReadingProgress())
+    {
+        return false;
+    }
+
+    progressDirty = false;
+    return true;
 }
 
 ReaderDocument::~ReaderDocument()

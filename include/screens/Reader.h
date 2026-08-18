@@ -23,6 +23,7 @@ public:
     bool handleInput(const InputState& input) override;
     NavigationRequest select() override;
     void onEnter() override;
+    void onExit() override;
 
 private:
     const CachedBook* currentBook = nullptr;
@@ -31,6 +32,7 @@ private:
     uint8_t selectedEmptyOption = 0;
     bool readerNeedsFullRefresh = true;
     uint8_t partialTurnsSinceFullRefresh = 0;
+    uint8_t pageTurnsSinceProgressFlush = 0;
     TextPaginator paginator;
 
     bool hasOpenDocument() const;
@@ -39,4 +41,5 @@ private:
     void drawCurrentTextPage() const;
     bool movePreviousPage();
     bool moveNextPage();
+    void recordPageChange();
 };

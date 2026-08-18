@@ -16,6 +16,7 @@ namespace
     constexpr uint8_t READER_TEXT_BASELINE = 13;
     constexpr uint8_t MAX_LINE_LENGTH = 48;
     constexpr uint8_t PARTIAL_TURNS_BEFORE_FULL_REFRESH = 12;
+    constexpr uint8_t PAGE_TURNS_BEFORE_PROGRESS_FLUSH = 5;
     constexpr int READER_PARTIAL_UPDATE_TOP =
         Theme::HEADER_HEIGHT + 1;
 }
@@ -96,6 +97,7 @@ bool ReaderPage::open(
     uint16_t savedPage
 )
 {
+    flushCachedBookProgress();
     paginator.clear();
     currentDocument.close();
     currentBook = book;
@@ -103,6 +105,7 @@ bool ReaderPage::open(
     selectedEmptyOption = 0;
     readerNeedsFullRefresh = true;
     partialTurnsSinceFullRefresh = 0;
+    pageTurnsSinceProgressFlush = 0;
 
     if (currentBook == nullptr || !currentDocument.open(*currentBook))
     {
@@ -143,7 +146,7 @@ bool ReaderPage::movePreviousPage()
     }
 
     currentPage--;
-    saveCachedBookPage(*currentBook, currentPage);
+    recordPageChange();
     return true;
 }
 
@@ -157,8 +160,22 @@ bool ReaderPage::moveNextPage()
     }
 
     currentPage++;
-    saveCachedBookPage(*currentBook, currentPage);
+    recordPageChange();
     return true;
+}
+
+void ReaderPage::recordPageChange()
+{
+    saveCachedBookPage(*currentBook, currentPage);
+    pageTurnsSinceProgressFlush++;
+
+    if (
+        pageTurnsSinceProgressFlush >=
+            PAGE_TURNS_BEFORE_PROGRESS_FLUSH &&
+        flushCachedBookProgress()
+    ) {
+        pageTurnsSinceProgressFlush = 0;
+    }
 }
 
 bool ReaderPage::handleInput(const InputState& input)
@@ -223,6 +240,14 @@ NavigationRequest ReaderPage::select()
 void ReaderPage::onEnter()
 {
     readerNeedsFullRefresh = true;
+}
+
+void ReaderPage::onExit()
+{
+    if (flushCachedBookProgress())
+    {
+        pageTurnsSinceProgressFlush = 0;
+    }
 }
 
 void ReaderPage::draw(uint8_t batteryPercent)

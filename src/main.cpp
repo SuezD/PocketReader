@@ -61,6 +61,16 @@ namespace
         drawCurrentPage();
     }
 
+    void exitCurrentPage()
+    {
+        const PageDefinition* page = getCurrentPage();
+
+        if (page != nullptr && page->page != nullptr)
+        {
+            page->page->onExit();
+        }
+    }
+
     bool isRegistered(PageId destination)
     {
         if (findPage(destination) != nullptr)
@@ -85,6 +95,7 @@ namespace
             return;
         }
 
+        exitCurrentPage();
         pageStack[pageStackSize++] = destination;
         enterCurrentPage();
     }
@@ -96,6 +107,7 @@ namespace
             return;
         }
 
+        exitCurrentPage();
         pageStack[pageStackSize - 1] = destination;
         enterCurrentPage();
     }
@@ -107,6 +119,7 @@ namespace
             return;
         }
 
+        exitCurrentPage();
         pageStack[0] = destination;
         pageStackSize = 1;
         enterCurrentPage();
@@ -119,6 +132,7 @@ namespace
             return;
         }
 
+        exitCurrentPage();
         pageStackSize--;
         enterCurrentPage();
     }

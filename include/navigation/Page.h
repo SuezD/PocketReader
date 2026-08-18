@@ -18,5 +18,8 @@ public:
     virtual void onEnter()
     {
     }
-};
 
+    virtual void onExit()
+    {
+    }
+};

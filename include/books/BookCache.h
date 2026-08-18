@@ -44,3 +44,4 @@ const char* const* getCachedBookTitles();
 const CachedBook& getCachedBook(uint8_t index);
 uint16_t getCachedBookPage(const CachedBook& book);
 void saveCachedBookPage(const CachedBook& book, uint16_t page);
+bool flushCachedBookProgress();
