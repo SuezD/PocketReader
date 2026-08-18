@@ -8,6 +8,7 @@
 #include "components/CenteredMessage.h"
 #include "components/Footer.h"
 #include "components/Header.h"
+#include "navigation/PageRegistry.h"
 
 namespace
 {
@@ -379,7 +380,7 @@ namespace
     }
 }
 
-void openReader(
+void ReaderPage::open(
     const CachedBook* book,
     const ReaderDocument& document,
     uint16_t savedPage
@@ -437,48 +438,71 @@ bool moveReaderNextPage()
     return true;
 }
 
-bool readerHasOpenDocument()
+bool ReaderPage::handleInput(const InputState& input)
 {
-    return hasOpenDocument();
-}
-
-bool moveReaderEmptySelectionPrevious()
-{
-    if (hasOpenDocument() || selectedEmptyOption == 0)
+    if (!input.upPressed && !input.downPressed)
     {
         return false;
     }
 
-    selectedEmptyOption--;
-    return true;
-}
+    if (!hasOpenDocument())
+    {
+        const uint8_t previousIndex = selectedEmptyOption;
 
-bool moveReaderEmptySelectionNext()
-{
-    constexpr uint8_t EMPTY_OPTION_COUNT = 2;
+        if (input.upPressed && !input.downPressed && selectedEmptyOption > 0)
+        {
+            selectedEmptyOption--;
+        }
+        else if (
+            input.downPressed && !input.upPressed &&
+            selectedEmptyOption + 1 < READER_EMPTY_OPTION_COUNT
+        ) {
+            selectedEmptyOption++;
+        }
 
-    if (
-        hasOpenDocument() ||
-        selectedEmptyOption + 1 >= EMPTY_OPTION_COUNT
-    ) {
-        return false;
+        if (selectedEmptyOption != previousIndex)
+        {
+            draw(85);
+        }
+
+        return true;
     }
 
-    selectedEmptyOption++;
+    bool pageChanged = false;
+
+    if (input.upPressed && !input.downPressed)
+    {
+        pageChanged = moveReaderPreviousPage();
+    }
+    else if (input.downPressed && !input.upPressed)
+    {
+        pageChanged = moveReaderNextPage();
+    }
+
+    if (pageChanged)
+    {
+        draw(85);
+    }
+
     return true;
 }
 
-ReaderEmptyOption getSelectedReaderEmptyOption()
+NavigationRequest ReaderPage::select()
 {
-    return static_cast<ReaderEmptyOption>(selectedEmptyOption);
+    if (hasOpenDocument() || selectedEmptyOption >= READER_EMPTY_OPTION_COUNT)
+    {
+        return noNavigation();
+    }
+
+    return READER_EMPTY_OPTIONS[selectedEmptyOption];
 }
 
-void requestReaderFullRefresh()
+void ReaderPage::onEnter()
 {
     readerNeedsFullRefresh = true;
 }
 
-void drawReader(uint8_t batteryPercent)
+void ReaderPage::draw(uint8_t batteryPercent)
 {
     const bool useFullRefresh =
         readerNeedsFullRefresh ||
@@ -520,10 +544,12 @@ void drawReader(uint8_t batteryPercent)
 
         if (currentBook == nullptr || !hasOpenDocument())
         {
-            const char* options[] = {
-                "My Books",
-                "Add Books"
-            };
+            const char* options[MAX_NAVIGATION_OPTIONS];
+            getNavigationOptionLabels(
+                READER_EMPTY_OPTIONS,
+                options,
+                READER_EMPTY_OPTION_COUNT
+            );
 
             if (useFullRefresh)
             {
@@ -534,7 +560,7 @@ void drawReader(uint8_t batteryPercent)
                 "Nothing in Progress",
                 nullptr,
                 options,
-                2,
+                READER_EMPTY_OPTION_COUNT,
                 selectedEmptyOption
             );
             drawFooter();

@@ -6,11 +6,11 @@
 #include "components/Footer.h"
 #include "components/Header.h"
 #include "components/SelectList.h"
+#include "navigation/PageRegistry.h"
+#include "screens/Reader.h"
 
 namespace
 {
-    SelectListState listState;
-
     void drawSelectionMarker(uint8_t selectedIndex)
     {
         const int itemStride =
@@ -33,7 +33,12 @@ namespace
     }
 }
 
-void drawMyBooks(uint8_t batteryPercent)
+MyBooksPage::MyBooksPage(ReaderPage& readerPage)
+    : readerPage(readerPage)
+{
+}
+
+void MyBooksPage::draw(uint8_t batteryPercent)
 {
     display.setFullWindow();
     display.firstPage();
@@ -45,15 +50,18 @@ void drawMyBooks(uint8_t batteryPercent)
 
         if (getCachedBookCount() == 0)
         {
-            const char* options[] = {
-                "Add Books"
-            };
+            const char* options[MAX_NAVIGATION_OPTIONS];
+            getNavigationOptionLabels(
+                MY_BOOKS_EMPTY_OPTIONS,
+                options,
+                MY_BOOKS_EMPTY_OPTION_COUNT
+            );
 
             drawMessage(
                 "No Books Downloaded",
                 nullptr,
                 options,
-                1,
+                MY_BOOKS_EMPTY_OPTION_COUNT,
                 0
             );
         }
@@ -71,7 +79,7 @@ void drawMyBooks(uint8_t batteryPercent)
     while (display.nextPage());
 }
 
-void redrawMyBooksSelection(uint8_t previousIndex)
+void MyBooksPage::redrawSelection(uint8_t previousIndex)
 {
     if (getCachedBookCount() == 0)
     {
@@ -122,26 +130,47 @@ void redrawMyBooksSelection(uint8_t previousIndex)
     while (display.nextPage());
 }
 
-bool moveMyBooksUp()
+bool MyBooksPage::handleInput(const InputState& input)
 {
     const uint8_t previousIndex = listState.selectedIndex;
-    moveSelectListUp(listState, getCachedBookCount());
-    return listState.selectedIndex != previousIndex;
+
+    if (input.upPressed && !input.downPressed)
+    {
+        moveSelectListUp(listState, getCachedBookCount());
+    }
+    else if (input.downPressed && !input.upPressed)
+    {
+        moveSelectListDown(listState, getCachedBookCount());
+    }
+    else
+    {
+        return false;
+    }
+
+    if (listState.selectedIndex != previousIndex)
+    {
+        redrawSelection(previousIndex);
+    }
+
+    return true;
 }
 
-bool moveMyBooksDown()
+NavigationRequest MyBooksPage::select()
 {
-    const uint8_t previousIndex = listState.selectedIndex;
-    moveSelectListDown(listState, getCachedBookCount());
-    return listState.selectedIndex != previousIndex;
-}
+    if (getCachedBookCount() == 0)
+    {
+        return MY_BOOKS_EMPTY_OPTIONS[0];
+    }
 
-const CachedBook& getSelectedMyBook()
-{
-    return getCachedBook(listState.selectedIndex);
-}
+    const CachedBook& book = getCachedBook(listState.selectedIndex);
+    ReaderDocument document = {};
 
-uint8_t getSelectedMyBookIndex()
-{
-    return listState.selectedIndex;
+    if (!openCachedBookDocument(book, document))
+    {
+        Serial.println(F("Could not open selected book"));
+        return noNavigation();
+    }
+
+    readerPage.open(&book, document, getCachedBookPage(book));
+    return { NavigationMode::Push, PageId::ContinueReading };
 }

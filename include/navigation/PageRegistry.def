@@ -1,0 +1,5 @@
+PAGE(MainMenu, "Main Menu", mainMenuPage)
+PAGE(ContinueReading, "Continue Reading", continueReadingPage)
+PAGE(MyBooks, "My Books", myBooksPage)
+PAGE(AddBooks, "Add Books", addBooksPage)
+PAGE(WiFiSettings, "Wi-Fi Settings", wiFiSettingsPage)

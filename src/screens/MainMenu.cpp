@@ -1,55 +1,16 @@
-#include "MainMenu.h"
+#include "screens/MainMenu.h"
 
 #include "Display.h"
 #include "Theme.h"
+#include "navigation/PageRegistry.h"
 
 #include "components/Footer.h"
 #include "components/Header.h"
 #include "components/SelectList.h"
 
-namespace
+void MainMenuPage::redrawSelection(uint8_t previousIndex)
 {
-    const char* const ITEMS[] = {
-        "Continue Reading",
-        "My Books",
-        "Add Books",
-        "Wi-Fi Settings"
-    };
-
-    constexpr uint8_t ITEM_COUNT =
-        sizeof(ITEMS) / sizeof(ITEMS[0]);
-
-    SelectListState listState;
-}
-
-void drawMainMenu(uint8_t batteryPercent)
-{
-    display.setFullWindow();
-    display.firstPage();
-
-    do
-    {
-        display.fillScreen(Theme::BACKGROUND_COLOR);
-
-        drawHeader("MAIN MENU", batteryPercent);
-
-        drawSelectList(
-            ITEMS,
-            ITEM_COUNT,
-            listState
-        );
-
-        drawFooter("Up / Down", "Select");
-    }
-    while (display.nextPage());
-}
-
-void redrawMainMenuSelection(MainMenuItem previousItem)
-{
-    const uint8_t previousIndex =
-        static_cast<uint8_t>(previousItem);
     const uint8_t selectedIndex = listState.selectedIndex;
-
     const uint8_t firstChangedIndex =
         min(previousIndex, selectedIndex);
     const uint8_t lastChangedIndex =
@@ -105,23 +66,53 @@ void redrawMainMenuSelection(MainMenuItem previousItem)
     while (display.nextPage());
 }
 
-bool moveMainMenuUp()
+void MainMenuPage::draw(uint8_t batteryPercent)
 {
-    const uint8_t previousIndex = listState.selectedIndex;
-    moveSelectListUp(listState, ITEM_COUNT);
-    return listState.selectedIndex != previousIndex;
-}
-
-bool moveMainMenuDown()
-{
-    const uint8_t previousIndex = listState.selectedIndex;
-    moveSelectListDown(listState, ITEM_COUNT);
-    return listState.selectedIndex != previousIndex;
-}
-
-MainMenuItem getSelectedMainMenuItem()
-{
-    return static_cast<MainMenuItem>(
-        listState.selectedIndex
+    const char* labels[MAX_NAVIGATION_OPTIONS];
+    getNavigationOptionLabels(
+        MAIN_MENU_OPTIONS,
+        labels,
+        MAIN_MENU_OPTION_COUNT
     );
+    display.setFullWindow();
+    display.firstPage();
+
+    do
+    {
+        display.fillScreen(Theme::BACKGROUND_COLOR);
+        drawHeader("MAIN MENU", batteryPercent);
+        drawSelectList(labels, MAIN_MENU_OPTION_COUNT, listState);
+        drawFooter("Up / Down", "Select");
+    }
+    while (display.nextPage());
+}
+
+bool MainMenuPage::handleInput(const InputState& input)
+{
+    const uint8_t previousIndex = listState.selectedIndex;
+
+    if (input.upPressed && !input.downPressed)
+    {
+        moveSelectListUp(listState, MAIN_MENU_OPTION_COUNT);
+    }
+    else if (input.downPressed && !input.upPressed)
+    {
+        moveSelectListDown(listState, MAIN_MENU_OPTION_COUNT);
+    }
+    else
+    {
+        return false;
+    }
+
+    if (listState.selectedIndex != previousIndex)
+    {
+        redrawSelection(previousIndex);
+    }
+
+    return true;
+}
+
+NavigationRequest MainMenuPage::select()
+{
+    return MAIN_MENU_OPTIONS[listState.selectedIndex];
 }

@@ -1,21 +1,19 @@
 #pragma once
 
-#include "books/BookCache.h"
+#include <Arduino.h>
+
 #include "components/SelectList.h"
 #include "navigation/Page.h"
-#include "screens/Reader.h"
 
-class MyBooksPage : public Page
+class MainMenuPage : public Page
 {
 public:
-    explicit MyBooksPage(ReaderPage& readerPage);
-
     void draw(uint8_t batteryPercent) override;
     bool handleInput(const InputState& input) override;
     NavigationRequest select() override;
 
 private:
-    ReaderPage& readerPage;
     SelectListState listState = {};
     void redrawSelection(uint8_t previousIndex);
 };
+
