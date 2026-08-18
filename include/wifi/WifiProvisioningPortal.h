@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <DNSServer.h>
 #include <WebServer.h>
 
 class WifiProvisioningPortal
@@ -15,7 +16,9 @@ public:
 
 private:
     static constexpr unsigned long SUCCESS_PAGE_DELAY_MS = 5000;
+    static constexpr uint16_t DNS_PORT = 53;
 
+    DNSServer dnsServer;
     WebServer server;
     bool active = false;
     bool connectionSubmitted = false;

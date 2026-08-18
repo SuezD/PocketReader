@@ -5,6 +5,8 @@
 #include "generated/WifiWebAssets.h"
 #include "wifi/WifiService.h"
 
+constexpr uint16_t WifiProvisioningPortal::DNS_PORT;
+
 namespace
 {
     const char* getStatusName(WifiState state)
@@ -78,7 +80,15 @@ bool WifiProvisioningPortal::start()
     server.on("/networks", HTTP_GET, [this]() { handleNetworks(); });
     server.on("/rescan", HTTP_POST, [this]() { handleRescan(); });
     server.on("/status", HTTP_GET, [this]() { handleStatus(); });
+    server.on("/generate_204", HTTP_ANY, [this]() { handleNotFound(); });
+    server.on("/gen_204", HTTP_ANY, [this]() { handleNotFound(); });
+    server.on("/hotspot-detect.html", HTTP_ANY, [this]() { handleNotFound(); });
+    server.on("/library/test/success.html", HTTP_ANY, [this]() { handleNotFound(); });
+    server.on("/connecttest.txt", HTTP_ANY, [this]() { handleNotFound(); });
+    server.on("/ncsi.txt", HTTP_ANY, [this]() { handleNotFound(); });
     server.onNotFound([this]() { handleNotFound(); });
+    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+    dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
     server.begin();
     active = true;
     connectionSubmitted = false;
@@ -97,6 +107,7 @@ void WifiProvisioningPortal::stop()
     }
 
     server.stop();
+    dnsServer.stop();
     getWifiManager().stopSetupAccessPoint();
     active = false;
     connectionSubmitted = false;
@@ -112,6 +123,7 @@ void WifiProvisioningPortal::update()
         return;
     }
 
+    dnsServer.processNextRequest();
     server.handleClient();
 
     if (!connectionSubmitted || !getWifiManager().isConnected())
@@ -238,7 +250,10 @@ void WifiProvisioningPortal::handleStatus()
 
 void WifiProvisioningPortal::handleNotFound()
 {
-    server.sendHeader("Location", "/", true);
+    String location = "http://";
+    location += getWifiManager().getSetupAddress();
+    location += '/';
+    server.sendHeader("Location", location, true);
     server.send(302, "text/plain", "");
 }
 
