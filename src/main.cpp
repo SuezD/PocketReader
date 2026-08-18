@@ -119,7 +119,9 @@ namespace
             case Page::MyBooks:
             {
                 const CachedBook& book = getSelectedMyBook();
-                openReader(&book, readCachedBookText(book));
+                ReaderDocument document = {};
+                openCachedBookDocument(book, document);
+                openReader(&book, document);
                 navigateTo(Page::Reader);
                 break;
             }

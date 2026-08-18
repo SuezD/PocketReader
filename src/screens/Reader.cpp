@@ -16,8 +16,28 @@ namespace
     constexpr uint8_t MAX_LINE_LENGTH = 48;
 
     const CachedBook* currentBook = nullptr;
-    const char* currentText = nullptr;
+    ReaderDocument currentDocument = {};
     uint16_t currentPage = 0;
+
+    bool hasOpenDocument()
+    {
+        return
+            currentDocument.byteLength > 0 &&
+            currentDocument.readCharacter != nullptr;
+    }
+
+    char readCharacter(uint32_t position)
+    {
+        if (!hasOpenDocument() || position >= currentDocument.byteLength)
+        {
+            return '\0';
+        }
+
+        return currentDocument.readCharacter(
+            currentDocument.sourceContext,
+            position
+        );
+    }
 
     bool isInlineWhitespace(char character)
     {
@@ -44,23 +64,26 @@ namespace
         return characterCount;
     }
 
-    const char* readNextLine(
-        const char* source,
+    uint32_t readNextLine(
+        uint32_t source,
         char* output
     ) {
         output[0] = '\0';
 
-        if (source == nullptr || source[0] == '\0')
+        if (source >= currentDocument.byteLength)
         {
             return source;
         }
 
-        if (source[0] == '\n')
+        if (readCharacter(source) == '\n')
         {
             return source + 1;
         }
 
-        while (isInlineWhitespace(source[0]))
+        while (
+            source < currentDocument.byteLength &&
+            isInlineWhitespace(readCharacter(source))
+        )
         {
             source++;
         }
@@ -68,29 +91,29 @@ namespace
         const uint8_t maximumCharacters =
             getMaximumCharactersPerLine();
         uint8_t outputLength = 0;
-        const char* position = source;
+        uint32_t position = source;
 
-        while (position[0] != '\0')
+        while (position < currentDocument.byteLength)
         {
-            if (position[0] == '\n')
+            if (readCharacter(position) == '\n')
             {
                 output[outputLength] = '\0';
                 return position + 1;
             }
 
-            if (isInlineWhitespace(position[0]))
+            if (isInlineWhitespace(readCharacter(position)))
             {
                 position++;
                 continue;
             }
 
-            const char* wordStart = position;
+            const uint32_t wordStart = position;
             uint8_t wordLength = 0;
 
             while (
-                position[0] != '\0' &&
-                position[0] != '\n' &&
-                !isInlineWhitespace(position[0])
+                position < currentDocument.byteLength &&
+                readCharacter(position) != '\n' &&
+                !isInlineWhitespace(readCharacter(position))
             ) {
                 wordLength++;
                 position++;
@@ -115,7 +138,7 @@ namespace
                     index < maximumCharacters;
                     index++
                 ) {
-                    output[index] = wordStart[index];
+                    output[index] = readCharacter(wordStart + index);
                 }
 
                 output[maximumCharacters] = '\0';
@@ -130,7 +153,8 @@ namespace
 
             for (uint8_t index = 0; index < wordLength; index++)
             {
-                output[outputLength] = wordStart[index];
+                output[outputLength] =
+                    readCharacter(wordStart + index);
                 outputLength++;
             }
         }
@@ -150,14 +174,15 @@ namespace
         return contentHeight / READER_LINE_HEIGHT;
     }
 
-    const char* getNextPageStart(const char* pageStart)
+    uint32_t getNextPageStart(uint32_t pageStart)
     {
         char line[MAX_LINE_LENGTH];
-        const char* position = pageStart;
+        uint32_t position = pageStart;
 
         for (
             uint8_t lineIndex = 0;
-            lineIndex < getLinesPerPage() && position[0] != '\0';
+            lineIndex < getLinesPerPage() &&
+                position < currentDocument.byteLength;
             lineIndex++
         ) {
             position = readNextLine(position, line);
@@ -166,13 +191,13 @@ namespace
         return position;
     }
 
-    const char* getPageStart(uint16_t pageIndex)
+    uint32_t getPageStart(uint16_t pageIndex)
     {
-        const char* pageStart = currentText;
+        uint32_t pageStart = 0;
 
         for (
             uint16_t index = 0;
-            index < pageIndex && pageStart[0] != '\0';
+            index < pageIndex && pageStart < currentDocument.byteLength;
             index++
         ) {
             pageStart = getNextPageStart(pageStart);
@@ -183,20 +208,20 @@ namespace
 
     uint16_t getPageCount()
     {
-        if (currentText == nullptr || currentText[0] == '\0')
+        if (!hasOpenDocument())
         {
             return 0;
         }
 
         uint16_t count = 1;
-        const char* pageStart = currentText;
+        uint32_t pageStart = 0;
 
         while (true)
         {
-            const char* nextPageStart =
+            const uint32_t nextPageStart =
                 getNextPageStart(pageStart);
 
-            if (nextPageStart[0] == '\0')
+            if (nextPageStart >= currentDocument.byteLength)
             {
                 return count;
             }
@@ -215,14 +240,15 @@ namespace
             Theme::FOOTER_HEIGHT - READER_VERTICAL_PADDING;
 
         char line[MAX_LINE_LENGTH];
-        const char* position = getPageStart(currentPage);
+        uint32_t position = getPageStart(currentPage);
 
         display.setFont(Theme::BODY_FONT);
         display.setTextColor(Theme::TEXT_COLOR);
 
         for (
             int baseline = contentTop + READER_TEXT_BASELINE;
-            baseline < contentBottom && position[0] != '\0';
+            baseline < contentBottom &&
+                position < currentDocument.byteLength;
             baseline += READER_LINE_HEIGHT
         ) {
             position = readNextLine(position, line);
@@ -236,10 +262,13 @@ namespace
     }
 }
 
-void openReader(const CachedBook* book, const char* text)
+void openReader(
+    const CachedBook* book,
+    const ReaderDocument& document
+)
 {
     currentBook = book;
-    currentText = text;
+    currentDocument = document;
     currentPage = 0;
 }
 
@@ -276,7 +305,7 @@ void drawReader(uint8_t batteryPercent)
     {
         display.fillScreen(Theme::BACKGROUND_COLOR);
 
-        if (currentBook == nullptr || currentText == nullptr)
+        if (currentBook == nullptr || !hasOpenDocument())
         {
             const char* options[] = {
                 "My Books",

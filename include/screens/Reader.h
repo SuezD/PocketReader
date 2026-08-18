@@ -6,7 +6,7 @@
 
 void openReader(
     const CachedBook* book,
-    const char* text
+    const ReaderDocument& document
 );
 
 bool moveReaderPreviousPage();
