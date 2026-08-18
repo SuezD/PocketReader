@@ -11,4 +11,5 @@ void openReader(
 
 bool moveReaderPreviousPage();
 bool moveReaderNextPage();
+void requestReaderFullRefresh();
 void drawReader(uint8_t batteryPercent);

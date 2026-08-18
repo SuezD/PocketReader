@@ -14,10 +14,15 @@ namespace
     constexpr uint8_t READER_LINE_HEIGHT = 18;
     constexpr uint8_t READER_TEXT_BASELINE = 13;
     constexpr uint8_t MAX_LINE_LENGTH = 48;
+    constexpr uint8_t PARTIAL_TURNS_BEFORE_FULL_REFRESH = 12;
+    constexpr int READER_PARTIAL_UPDATE_TOP =
+        Theme::HEADER_HEIGHT + 1;
 
     const CachedBook* currentBook = nullptr;
     ReaderDocument currentDocument = {};
     uint16_t currentPage = 0;
+    bool readerNeedsFullRefresh = true;
+    uint8_t partialTurnsSinceFullRefresh = 0;
 
     bool hasOpenDocument()
     {
@@ -270,6 +275,8 @@ void openReader(
     currentBook = book;
     currentDocument = document;
     currentPage = 0;
+    readerNeedsFullRefresh = true;
+    partialTurnsSinceFullRefresh = 0;
 }
 
 bool moveReaderPreviousPage()
@@ -296,14 +303,50 @@ bool moveReaderNextPage()
     return true;
 }
 
+void requestReaderFullRefresh()
+{
+    readerNeedsFullRefresh = true;
+}
+
 void drawReader(uint8_t batteryPercent)
 {
-    display.setFullWindow();
+    const bool useFullRefresh =
+        readerNeedsFullRefresh ||
+        partialTurnsSinceFullRefresh >=
+            PARTIAL_TURNS_BEFORE_FULL_REFRESH;
+
+    if (useFullRefresh)
+    {
+        display.setFullWindow();
+    }
+    else
+    {
+        display.setPartialWindow(
+            0,
+            READER_PARTIAL_UPDATE_TOP,
+            display.width(),
+            display.height() - READER_PARTIAL_UPDATE_TOP
+        );
+    }
+
     display.firstPage();
 
     do
     {
-        display.fillScreen(Theme::BACKGROUND_COLOR);
+        if (useFullRefresh)
+        {
+            display.fillScreen(Theme::BACKGROUND_COLOR);
+        }
+        else
+        {
+            display.fillRect(
+                0,
+                READER_PARTIAL_UPDATE_TOP,
+                display.width(),
+                display.height() - READER_PARTIAL_UPDATE_TOP,
+                Theme::BACKGROUND_COLOR
+            );
+        }
 
         if (currentBook == nullptr || !hasOpenDocument())
         {
@@ -311,13 +354,22 @@ void drawReader(uint8_t batteryPercent)
                 "My Books",
                 "Add Books"
             };
-            drawHeader("READER", batteryPercent);
+
+            if (useFullRefresh)
+            {
+                drawHeader("READER", batteryPercent);
+            }
+
             drawMessage("Nothing in Progress", nullptr, options, 2, 0);
             drawFooter();
             continue;
         }
 
-        drawHeader(currentBook->title, batteryPercent);
+        if (useFullRefresh)
+        {
+            drawHeader(currentBook->title, batteryPercent);
+        }
+
         drawCurrentTextPage();
 
         char pageText[16];
@@ -333,4 +385,14 @@ void drawReader(uint8_t batteryPercent)
         drawFooter("Chapter 1", pageText);
     }
     while (display.nextPage());
+
+    if (useFullRefresh)
+    {
+        readerNeedsFullRefresh = false;
+        partialTurnsSinceFullRefresh = 0;
+    }
+    else
+    {
+        partialTurnsSinceFullRefresh++;
+    }
 }

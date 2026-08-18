@@ -76,6 +76,12 @@ namespace
 
         pageStack[pageStackSize] = page;
         pageStackSize++;
+
+        if (page == Page::Reader)
+        {
+            requestReaderFullRefresh();
+        }
+
         drawCurrentPage();
     }
 
