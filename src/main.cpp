@@ -5,16 +5,15 @@
 #include "books/BookCache.h"
 #include "navigation/PageRegistry.h"
 #include "screens/Startup.h"
+#include "components/Header.h"
 #include "wifi/DevelopmentWifiConfig.h"
-#include "wifi/WifiManager.h"
+#include "wifi/WifiService.h"
 
 namespace
 {
     constexpr uint8_t PAGE_STACK_CAPACITY = 8;
     constexpr unsigned long DOUBLE_TAP_MS = 350;
     constexpr uint8_t BATTERY_PERCENT = 85;
-
-    WifiManager wifiManager;
 
     PageId pageStack[PAGE_STACK_CAPACITY] = { PageId::MainMenu };
     uint8_t pageStackSize = 1;
@@ -37,8 +36,8 @@ namespace
     {
         initBookCache();
         initializeRegisteredPages();
-        wifiManager.begin();
-        wifiManager.connect(
+        getWifiManager().begin();
+        getWifiManager().connect(
             DevelopmentWifi::SSID,
             DevelopmentWifi::PASSWORD
         );
@@ -233,7 +232,13 @@ void setup()
 
 void loop()
 {
-    wifiManager.update();
+    const WifiState previousWifiState = getWifiManager().getState();
+    getWifiManager().update();
+
+    if (getWifiManager().getState() != previousWifiState)
+    {
+        redrawHeaderStatus(BATTERY_PERCENT);
+    }
 
     const InputState input = readInput();
     logInput(input);
