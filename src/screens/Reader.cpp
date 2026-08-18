@@ -35,21 +35,17 @@ ReaderPage::~ReaderPage()
 bool ReaderPage::hasOpenDocument() const
 {
     return
-        currentDocument.byteLength > 0 &&
-        currentDocument.readCharacter != nullptr;
+        currentDocument.isOpen();
 }
 
 char ReaderPage::readCharacter(uint32_t position) const
 {
-    if (!hasOpenDocument() || position >= currentDocument.byteLength)
+    if (!hasOpenDocument() || position >= currentDocument.length())
     {
         return '\0';
     }
 
-    return currentDocument.readCharacter(
-        currentDocument.sourceContext,
-        position
-    );
+    return currentDocument.readCharacter(position);
 }
 
 uint8_t ReaderPage::getMaximumCharactersPerLine() const
@@ -78,7 +74,7 @@ uint32_t ReaderPage::readNextLine(
 ) const {
         output[0] = '\0';
 
-        if (source >= currentDocument.byteLength)
+        if (source >= currentDocument.length())
         {
             return source;
         }
@@ -89,7 +85,7 @@ uint32_t ReaderPage::readNextLine(
         }
 
         while (
-            source < currentDocument.byteLength &&
+            source < currentDocument.length() &&
             isInlineWhitespace(readCharacter(source))
         )
         {
@@ -101,7 +97,7 @@ uint32_t ReaderPage::readNextLine(
         uint8_t outputLength = 0;
         uint32_t position = source;
 
-        while (position < currentDocument.byteLength)
+        while (position < currentDocument.length())
         {
             if (readCharacter(position) == '\n')
             {
@@ -119,7 +115,7 @@ uint32_t ReaderPage::readNextLine(
             uint8_t wordLength = 0;
 
             while (
-                position < currentDocument.byteLength &&
+                position < currentDocument.length() &&
                 readCharacter(position) != '\n' &&
                 !isInlineWhitespace(readCharacter(position))
             ) {
@@ -190,7 +186,7 @@ uint32_t ReaderPage::getNextPageStart(uint32_t pageStart) const
         for (
             uint8_t lineIndex = 0;
             lineIndex < getLinesPerPage() &&
-                position < currentDocument.byteLength;
+                position < currentDocument.length();
             lineIndex++
         ) {
             position = readNextLine(position, line);
@@ -258,12 +254,12 @@ bool ReaderPage::buildPageIndex()
 
         uint32_t pageStart = 0;
 
-        while (pageStart < currentDocument.byteLength)
+        while (pageStart < currentDocument.length())
         {
             const uint32_t nextPageStart =
                 getNextPageStart(pageStart);
 
-            if (nextPageStart >= currentDocument.byteLength)
+            if (nextPageStart >= currentDocument.length())
             {
                 pageIndexReady = true;
                 return true;
@@ -290,7 +286,7 @@ uint32_t ReaderPage::findPageStartWithoutIndex(uint16_t pageIndex) const
 
         for (
             uint16_t index = 0;
-            index < pageIndex && pageStart < currentDocument.byteLength;
+            index < pageIndex && pageStart < currentDocument.length();
             index++
         ) {
             pageStart = getNextPageStart(pageStart);
@@ -314,7 +310,7 @@ uint16_t ReaderPage::countPagesWithoutIndex() const
             const uint32_t nextPageStart =
                 getNextPageStart(pageStart);
 
-            if (nextPageStart >= currentDocument.byteLength)
+            if (nextPageStart >= currentDocument.length())
             {
                 return count;
             }
@@ -361,7 +357,7 @@ void ReaderPage::drawCurrentTextPage() const
         for (
             int baseline = contentTop + READER_TEXT_BASELINE;
             baseline < contentBottom &&
-                position < currentDocument.byteLength;
+                position < currentDocument.length();
             baseline += READER_LINE_HEIGHT
         ) {
             position = readNextLine(position, line);
@@ -374,20 +370,26 @@ void ReaderPage::drawCurrentTextPage() const
         }
     }
 
-void ReaderPage::open(
+bool ReaderPage::open(
     const CachedBook* book,
-    const ReaderDocument& document,
     uint16_t savedPage
 )
 {
+    clearPageIndex();
+    currentDocument.close();
     currentBook = book;
-    currentDocument = document;
     currentPage = 0;
     selectedEmptyOption = 0;
     readerNeedsFullRefresh = true;
     partialTurnsSinceFullRefresh = 0;
 
-    if (hasOpenDocument() && !buildPageIndex())
+    if (currentBook == nullptr || !currentDocument.open(*currentBook))
+    {
+        currentBook = nullptr;
+        return false;
+    }
+
+    if (!buildPageIndex())
     {
         Serial.println(F("Reader page index unavailable"));
     }
@@ -404,6 +406,8 @@ void ReaderPage::open(
     {
         saveCachedBookPage(*currentBook, currentPage);
     }
+
+    return true;
 }
 
 bool ReaderPage::movePreviousPage()

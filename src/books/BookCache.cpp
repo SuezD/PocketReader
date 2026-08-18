@@ -9,7 +9,6 @@ namespace
 {
     constexpr char BOOK_MANIFEST_PATH[] = "/books.tsv";
     constexpr char READING_PROGRESS_PATH[] = "/reading-progress.txt";
-    constexpr size_t FILE_READ_BUFFER_SIZE = 96;
     constexpr uint8_t MAX_BOOK_COUNT = 16;
     constexpr size_t MAX_BOOK_ID_LENGTH = 31;
     constexpr size_t MAX_BOOK_TITLE_LENGTH = 63;
@@ -27,12 +26,6 @@ namespace
     uint8_t bookCount = 0;
 
     bool fileSystemReady = false;
-    File currentTextFile;
-    const char* currentFilePath = nullptr;
-    uint32_t bufferedByteStart = 0;
-    size_t bufferedByteCount = 0;
-    char fileReadBuffer[FILE_READ_BUFFER_SIZE];
-
     bool copyManifestField(
         char* destination,
         size_t destinationSize,
@@ -147,39 +140,6 @@ namespace
         manifestFile.close();
     }
 
-    char readLittleFsCharacter(
-        const void* sourceContext,
-        uint32_t position
-    ) {
-        if (
-            sourceContext != currentFilePath ||
-            !currentTextFile ||
-            position >= currentTextFile.size()
-        ) {
-            return '\0';
-        }
-
-        const uint32_t bufferedByteEnd =
-            bufferedByteStart + bufferedByteCount;
-
-        if (
-            position < bufferedByteStart ||
-            position >= bufferedByteEnd
-        ) {
-            if (!currentTextFile.seek(position))
-            {
-                return '\0';
-            }
-
-            bufferedByteStart = position;
-            bufferedByteCount = currentTextFile.readBytes(
-                fileReadBuffer,
-                FILE_READ_BUFFER_SIZE
-            );
-        }
-
-        return fileReadBuffer[position - bufferedByteStart];
-    }
     int getBookIndex(const CachedBook& book)
     {
         const uint8_t count = getCachedBookCount();
@@ -320,41 +280,83 @@ void saveCachedBookPage(const CachedBook& book, uint16_t page)
     writeReadingProgress();
 }
 
-bool openCachedBookDocument(
-    const CachedBook& book,
-    ReaderDocument& document
-)
+ReaderDocument::~ReaderDocument()
 {
-    document = {};
+    close();
+}
+
+bool ReaderDocument::open(const CachedBook& book)
+{
+    close();
 
     if (!fileSystemReady || book.filePath == nullptr || book.filePath[0] == '\0')
     {
         return false;
     }
 
-    currentTextFile.close();
-    currentTextFile = LittleFS.open(book.filePath, "r");
-    currentFilePath = nullptr;
-    bufferedByteCount = 0;
+    file = LittleFS.open(book.filePath, "r");
 
-    if (!currentTextFile)
+    if (!file)
     {
         Serial.print(F("Missing book file: "));
         Serial.println(book.filePath);
         return false;
     }
 
-    if (currentTextFile.size() == 0)
+    byteLength = file.size();
+
+    if (byteLength == 0)
     {
         Serial.print(F("Book file is empty: "));
         Serial.println(book.filePath);
-        currentTextFile.close();
+        close();
         return false;
     }
 
-    currentFilePath = book.filePath;
-    document.byteLength = currentTextFile.size();
-    document.sourceContext = currentFilePath;
-    document.readCharacter = readLittleFsCharacter;
     return true;
+}
+
+void ReaderDocument::close()
+{
+    file.close();
+    byteLength = 0;
+    bufferedByteStart = 0;
+    bufferedByteCount = 0;
+}
+
+bool ReaderDocument::isOpen() const
+{
+    return file && byteLength > 0;
+}
+
+uint32_t ReaderDocument::length() const
+{
+    return byteLength;
+}
+
+char ReaderDocument::readCharacter(uint32_t position) const
+{
+    if (!isOpen() || position >= byteLength)
+    {
+        return '\0';
+    }
+
+    const uint32_t bufferedByteEnd =
+        bufferedByteStart + bufferedByteCount;
+
+    if (position < bufferedByteStart || position >= bufferedByteEnd)
+    {
+        if (!file.seek(position))
+        {
+            return '\0';
+        }
+
+        bufferedByteStart = position;
+        bufferedByteCount = file.readBytes(
+            readBuffer,
+            READ_BUFFER_SIZE
+        );
+    }
+
+    return readBuffer[position - bufferedByteStart];
 }

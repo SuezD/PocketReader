@@ -90,14 +90,12 @@ NavigationRequest MyBooksPage::select()
     }
 
     const CachedBook& book = getCachedBook(listState.selectedIndex);
-    ReaderDocument document = {};
 
-    if (!openCachedBookDocument(book, document))
+    if (!readerPage.open(&book, getCachedBookPage(book)))
     {
         Serial.println(F("Could not open selected book"));
         return noNavigation();
     }
 
-    readerPage.open(&book, document, getCachedBookPage(book));
     return { NavigationMode::Push, PageId::ContinueReading };
 }

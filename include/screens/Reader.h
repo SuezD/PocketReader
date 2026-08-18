@@ -14,9 +14,8 @@ public:
     ReaderPage(const ReaderPage&) = delete;
     ReaderPage& operator=(const ReaderPage&) = delete;
 
-    void open(
+    bool open(
         const CachedBook* book,
-        const ReaderDocument& document,
         uint16_t savedPage
     );
 
