@@ -2,6 +2,7 @@
 
 #include "Display.h"
 #include "Theme.h"
+#include "components/CenteredMessage.h"
 #include "components/Footer.h"
 #include "components/Header.h"
 #include "components/SelectList.h"
@@ -42,11 +43,28 @@ void drawMyBooks(uint8_t batteryPercent)
         display.fillScreen(Theme::BACKGROUND_COLOR);
         drawHeader("MY BOOKS", batteryPercent);
 
-        drawSelectList(
-            getCachedBookTitles(),
-            getCachedBookCount(),
-            listState
-        );
+        if (getCachedBookCount() == 0)
+        {
+            const char* options[] = {
+                "Add Books"
+            };
+
+            drawMessage(
+                "No Books Downloaded",
+                nullptr,
+                options,
+                1,
+                0
+            );
+        }
+        else
+        {
+            drawSelectList(
+                getCachedBookTitles(),
+                getCachedBookCount(),
+                listState
+            );
+        }
 
         drawFooter();
     }
@@ -55,6 +73,11 @@ void drawMyBooks(uint8_t batteryPercent)
 
 void redrawMyBooksSelection(uint8_t previousIndex)
 {
+    if (getCachedBookCount() == 0)
+    {
+        return;
+    }
+
     const uint8_t selectedIndex = listState.selectedIndex;
     const uint8_t firstChangedIndex =
         min(previousIndex, selectedIndex);

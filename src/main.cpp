@@ -129,9 +129,20 @@ namespace
 
             case Page::MyBooks:
             {
+                if (getCachedBookCount() == 0)
+                {
+                    // Add Books is a placeholder until Wi-Fi downloading exists.
+                    break;
+                }
+
                 const CachedBook& book = getSelectedMyBook();
                 ReaderDocument document = {};
-                openCachedBookDocument(book, document);
+                if (!openCachedBookDocument(book, document))
+                {
+                    Serial.println(F("Could not open selected book"));
+                    break;
+                }
+
                 openReader(
                     &book,
                     document,

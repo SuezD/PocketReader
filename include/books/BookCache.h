@@ -6,6 +6,7 @@ struct CachedBook
 {
     const char* id;
     const char* title;
+    const char* filePath;
 };
 
 struct ReaderDocument
