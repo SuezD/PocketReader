@@ -4,6 +4,7 @@
 #include "screens/MyBooks.h"
 #include "screens/PlaceholderPages.h"
 #include "screens/Reader.h"
+#include "screens/WifiSetup.h"
 
 namespace
 {
@@ -14,10 +15,7 @@ namespace
         "ADD BOOKS",
         "Book downloads are not implemented yet"
     );
-    PlaceholderPage wiFiSettingsPage(
-        "WI-FI SETTINGS",
-        "Wi-Fi setup is not implemented yet"
-    );
+    WifiSetupPage wiFiSettingsPage;
 
     const PageDefinition PAGES[] = {
 #define PAGE(id, title, instance) { PageId::id, title, &instance },

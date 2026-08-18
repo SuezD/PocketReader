@@ -8,6 +8,7 @@
 #include "components/Header.h"
 #include "wifi/DevelopmentWifiConfig.h"
 #include "wifi/WifiService.h"
+#include "wifi/WifiProvisioningService.h"
 
 namespace
 {
@@ -40,10 +41,17 @@ namespace
 
         if (!getWifiManager().hasSavedNetwork())
         {
-            getWifiManager().connect(
-                DevelopmentWifi::SSID,
-                DevelopmentWifi::PASSWORD
-            );
+            if (DevelopmentWifi::SSID[0] == '\0')
+            {
+                getWifiProvisioningPortal().start();
+            }
+            else
+            {
+                getWifiManager().connect(
+                    DevelopmentWifi::SSID,
+                    DevelopmentWifi::PASSWORD
+                );
+            }
         }
         // Later: read battery level.
         startupReady = true;
@@ -238,6 +246,7 @@ void loop()
 {
     const WifiState previousWifiState = getWifiManager().getState();
     getWifiManager().update();
+    getWifiProvisioningPortal().update();
 
     if (getWifiManager().getState() != previousWifiState)
     {

@@ -4,6 +4,9 @@
 
 namespace
 {
+    constexpr char SETUP_NETWORK_NAME[] = "PocketReader-Setup";
+    constexpr char SETUP_NETWORK_PASSWORD[] = "pocketreader";
+
     const __FlashStringHelper* getStateName(WifiState state)
     {
         switch (state)
@@ -62,12 +65,16 @@ void WifiManager::connect(const char* ssid, const char* password)
     networkPassword = password == nullptr ? "" : password;
     shouldReconnect = true;
     saveAfterConnection = true;
-    startConnection();
+    WiFi.disconnect(false, false);
+    retryAt = millis() + CONNECTION_RESET_MS;
+    connectionResetPending = true;
+    setState(WifiState::Disconnected);
 }
 
 void WifiManager::disconnect()
 {
     shouldReconnect = false;
+    connectionResetPending = false;
     retryAt = 0;
     WiFi.disconnect(false, false);
     setState(WifiState::Disconnected);
@@ -90,9 +97,57 @@ void WifiManager::forgetNetwork()
     Serial.println(F("Forgot saved Wi-Fi network"));
 }
 
+bool WifiManager::startSetupAccessPoint()
+{
+    if (setupAccessPointActive)
+    {
+        return true;
+    }
+
+    WiFi.mode(isConnected() ? WIFI_AP_STA : WIFI_AP);
+
+    if (!WiFi.softAP(SETUP_NETWORK_NAME, SETUP_NETWORK_PASSWORD))
+    {
+        Serial.println(F("Could not start Wi-Fi setup network"));
+        return false;
+    }
+
+    setupAccessPointActive = true;
+    Serial.print(F("Wi-Fi setup network: "));
+    Serial.println(SETUP_NETWORK_NAME);
+    Serial.print(F("Wi-Fi setup address: "));
+    Serial.println(WiFi.softAPIP());
+    return true;
+}
+
+void WifiManager::stopSetupAccessPoint()
+{
+    if (!setupAccessPointActive)
+    {
+        return;
+    }
+
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_STA);
+    setupAccessPointActive = false;
+    Serial.println(F("Wi-Fi setup network stopped"));
+}
+
 void WifiManager::update()
 {
     const unsigned long now = millis();
+
+    if (connectionResetPending)
+    {
+        if (static_cast<long>(now - retryAt) >= 0)
+        {
+            connectionResetPending = false;
+            startConnection();
+        }
+
+        return;
+    }
+
     const wl_status_t wifiStatus = WiFi.status();
 
     if (wifiStatus == WL_CONNECTED)
@@ -153,14 +208,34 @@ bool WifiManager::hasSavedNetwork() const
     return savedNetworkAvailable;
 }
 
+bool WifiManager::isSetupAccessPointActive() const
+{
+    return setupAccessPointActive;
+}
+
 const char* WifiManager::getNetworkName() const
 {
     return networkName.c_str();
 }
 
+const char* WifiManager::getSetupNetworkName() const
+{
+    return SETUP_NETWORK_NAME;
+}
+
+const char* WifiManager::getSetupNetworkPassword() const
+{
+    return SETUP_NETWORK_PASSWORD;
+}
+
+String WifiManager::getSetupAddress() const
+{
+    return WiFi.softAPIP().toString();
+}
+
 void WifiManager::startConnection()
 {
-    WiFi.disconnect(false, false);
+    WiFi.mode(setupAccessPointActive ? WIFI_AP_STA : WIFI_STA);
     WiFi.begin(networkName.c_str(), networkPassword.c_str());
     connectionStartedAt = millis();
     retryAt = 0;
