@@ -17,7 +17,7 @@ public:
     ) override;
 
 private:
-    static constexpr uint8_t MAX_ITEMS = 6;
+    static constexpr uint8_t MAX_ITEMS = 7;
     SelectedWifiNetwork& selectedNetwork;
     uint8_t selectedIndex = 0;
     uint8_t batteryPercent = 0;

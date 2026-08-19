@@ -42,11 +42,14 @@ void MyBooksPage::draw(uint8_t batteryPercent)
         }
         else
         {
+            const char* items[MAX_BOOK_ITEMS];
+            const uint8_t itemCount = getItems(items);
             drawSelectList(
-                getCachedBookTitles(),
-                getCachedBookCount(),
+                items,
+                itemCount,
                 listState,
-                TWO_LINE_SELECT_LIST
+                TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION,
+                "Back"
             );
         }
 
@@ -94,20 +97,16 @@ bool MyBooksPage::handleInput(const InputState& input)
     }
 
     const SelectListState previousState = listState;
+    const char* items[MAX_BOOK_ITEMS];
+    const uint8_t itemCount = getItems(items);
 
     if (input.upPressed && !input.downPressed)
     {
-        moveSelectListUp(
-            listState,
-            getCachedBookCount()
-        );
+        moveSelectListUp(listState, itemCount + 1);
     }
     else if (input.downPressed && !input.upPressed)
     {
-        moveSelectListDown(
-            listState,
-            getCachedBookCount()
-        );
+        moveSelectListDown(listState, itemCount + 1);
     }
     else
     {
@@ -115,11 +114,12 @@ bool MyBooksPage::handleInput(const InputState& input)
     }
 
     redrawSelectListAfterMove(
-        getCachedBookTitles(),
+        items,
         getCachedBookCount(),
         previousState,
         listState,
-        TWO_LINE_SELECT_LIST
+        TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION,
+        "Back"
     );
 
     return true;
@@ -132,6 +132,22 @@ NavigationRequest MyBooksPage::select()
         return MY_BOOKS_EMPTY_OPTIONS[selectedEmptyOption];
     }
 
+    if (listState.selectedIndex >= getCachedBookCount())
+    {
+        return { NavigationMode::Pop, PageId::MainMenu };
+    }
+
     selectedBook.select(getCachedBook(listState.selectedIndex));
     return { NavigationMode::Push, PageId::BookActions };
+}
+
+uint8_t MyBooksPage::getItems(const char** items) const
+{
+    const uint8_t bookCount = getCachedBookCount();
+    const char* const* titles = getCachedBookTitles();
+    for (uint8_t index = 0; index < bookCount; index++)
+    {
+        items[index] = titles[index];
+    }
+    return bookCount;
 }

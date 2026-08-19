@@ -10,6 +10,7 @@
 namespace
 {
     constexpr char ADD_NETWORK_LABEL[] = "Add New Network";
+    constexpr char BACK_LABEL[] = "Back";
 }
 
 WifiSettingsPage::WifiSettingsPage(SelectedWifiNetwork& nextSelectedNetwork)
@@ -71,7 +72,11 @@ NavigationRequest WifiSettingsPage::select()
         selectedNetwork.select(wifi.getSavedNetworkName(selectedIndex));
         return { NavigationMode::Push, PageId::WifiNetworkActions };
     }
-    return { NavigationMode::Push, PageId::WifiSetup };
+    if (selectedIndex == networkCount)
+    {
+        return { NavigationMode::Push, PageId::WifiSetup };
+    }
+    return { NavigationMode::Pop, PageId::MainMenu };
 }
 
 bool WifiSettingsPage::handleConnectivityStateChange(
@@ -100,7 +105,8 @@ uint8_t WifiSettingsPage::getItems(const char** items) const
         items[index] = wifi.getSavedNetworkName(index);
     }
     items[networkCount] = ADD_NETWORK_LABEL;
-    return networkCount + 1;
+    items[networkCount + 1] = BACK_LABEL;
+    return networkCount + 2;
 }
 
 String WifiSettingsPage::getConnectionStatus() const

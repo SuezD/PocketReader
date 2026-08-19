@@ -11,9 +11,24 @@
 #include "components/SelectList.h"
 #include "navigation/PageRegistry.h"
 
+namespace
+{
+    constexpr const char* DOWNLOAD_COMPLETE_OPTIONS[] = {
+        "Read", "Back to Catalogue", "Main Menu"
+    };
+}
+
+AddBooksPage::AddBooksPage(ReaderPage& nextReaderPage)
+    : readerPage(nextReaderPage)
+{
+}
+
 void AddBooksPage::draw(uint8_t nextBatteryPercent)
 {
     batteryPercent = nextBatteryPercent;
+    downloadComplete = false;
+    completedBookId = "";
+    completedBookTitle = "";
 
     display.setFullWindow();
     display.firstPage();
@@ -32,23 +47,54 @@ void AddBooksPage::draw(uint8_t nextBatteryPercent)
 bool AddBooksPage::handleInput(const InputState& input)
 {
     BookSync& sync = getBookSync();
+    if (downloadComplete)
+    {
+        const uint8_t previousIndex = selectedCompleteOption;
+        if (
+            input.upPressed && !input.downPressed &&
+            selectedCompleteOption > 0
+        ) {
+            selectedCompleteOption--;
+        }
+        else if (
+            input.downPressed && !input.upPressed &&
+            selectedCompleteOption + 1 < DOWNLOAD_COMPLETE_OPTION_COUNT
+        ) {
+            selectedCompleteOption++;
+        }
+        else
+        {
+            return input.upPressed || input.downPressed;
+        }
+        redrawMessageSelection(
+            "Download complete",
+            completedBookTitle.c_str(),
+            DOWNLOAD_COMPLETE_OPTIONS,
+            DOWNLOAD_COMPLETE_OPTION_COUNT,
+            previousIndex,
+            selectedCompleteOption
+        );
+        return true;
+    }
+
     if (
         syncResult == BookSyncResult::Success &&
         sync.getBookCount() > 0
     ) {
+        const uint8_t itemCount = sync.getBookCount() + 1;
         const SelectListState previousState = listState;
         if (input.upPressed && !input.downPressed)
         {
             moveSelectListUp(
                 listState,
-                sync.getBookCount()
+                itemCount
             );
         }
         else if (input.downPressed && !input.upPressed)
         {
             moveSelectListDown(
                 listState,
-                sync.getBookCount()
+                itemCount
             );
         }
         else
@@ -56,27 +102,96 @@ bool AddBooksPage::handleInput(const InputState& input)
             return false;
         }
 
-        const char* titles[MAX_CATALOG_BOOKS];
+        const char* titles[MAX_CATALOG_ITEMS];
         getBookTitles(titles);
         redrawSelectListAfterMove(
             titles,
             sync.getBookCount(),
             previousState,
             listState,
-            TWO_LINE_SELECT_LIST
+            TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION,
+            "Back"
         );
         return true;
     }
 
-    return input.upPressed || input.downPressed;
+    Action actions[MAX_ACTION_COUNT];
+    const char* labels[MAX_ACTION_COUNT];
+    const uint8_t actionCount = getActions(actions, labels);
+    const uint8_t previousIndex = selectedActionIndex;
+    if (input.upPressed && !input.downPressed && selectedActionIndex > 0)
+    {
+        selectedActionIndex--;
+    }
+    else if (
+        input.downPressed && !input.upPressed &&
+        selectedActionIndex + 1 < actionCount
+    ) {
+        selectedActionIndex++;
+    }
+    else
+    {
+        return input.upPressed || input.downPressed;
+    }
+    String details;
+    if (syncResult == BookSyncResult::Success)
+    {
+        details = sync.getBookCount();
+        details += sync.getBookCount() == 1
+            ? " book available"
+            : " books available";
+    }
+    else if (syncResult == BookSyncResult::HttpError)
+    {
+        details = "HTTP ";
+        details += sync.getHttpStatus();
+    }
+    redrawMessageSelection(
+        syncResult == BookSyncResult::Success
+            ? "No books available"
+            : getBookSyncResultText(syncResult),
+        details.length() > 0 ? details.c_str() : nullptr,
+        labels,
+        actionCount,
+        previousIndex,
+        selectedActionIndex
+    );
+    return true;
 }
 
 NavigationRequest AddBooksPage::select()
 {
+    if (downloadComplete)
+    {
+        if (selectedCompleteOption == 0)
+        {
+            const CachedBook* book = findCachedBook(completedBookId.c_str());
+            if (book == nullptr || !readerPage.open(book, getCachedBookPage(*book)))
+            {
+                downloadStatus = "Could not open book";
+                downloadComplete = false;
+                drawResultContent();
+                return noNavigation();
+            }
+            return { NavigationMode::Push, PageId::ContinueReading };
+        }
+        if (selectedCompleteOption == 1)
+        {
+            downloadComplete = false;
+            drawResultContent();
+            return noNavigation();
+        }
+        return { NavigationMode::Home, PageId::MainMenu };
+    }
+
     if (
         syncResult == BookSyncResult::Success &&
         getBookSync().getBookCount() > 0
     ) {
+        if (listState.selectedIndex >= getBookSync().getBookCount())
+        {
+            return { NavigationMode::Pop, PageId::MainMenu };
+        }
         downloadSelectedBook();
         return noNavigation();
     }
@@ -90,13 +205,16 @@ NavigationRequest AddBooksPage::select()
         return noNavigation();
     }
 
-    switch (actions[0])
+    if (selectedActionIndex >= actionCount) selectedActionIndex = 0;
+    switch (actions[selectedActionIndex])
     {
         case Action::Retry:
             refresh();
             return noNavigation();
         case Action::WifiSettings:
             return ADD_BOOKS_OFFLINE_OPTIONS[0];
+        case Action::Back:
+            return { NavigationMode::Pop, PageId::MainMenu };
     }
 
     return noNavigation();
@@ -106,21 +224,20 @@ uint8_t AddBooksPage::getActions(
     Action* actions,
     const char** labels
 ) const {
+    uint8_t count = 0;
     if (syncResult == BookSyncResult::RequestFailed)
     {
-        actions[0] = Action::Retry;
-        labels[0] = "Retry";
-        return 1;
+        actions[count] = Action::Retry;
+        labels[count++] = "Retry";
     }
-
-    if (syncResult == BookSyncResult::NotConnected)
+    else if (syncResult == BookSyncResult::NotConnected)
     {
-        actions[0] = Action::WifiSettings;
-        labels[0] = getPageTitle(PageId::WiFiSettings);
-        return 1;
+        actions[count] = Action::WifiSettings;
+        labels[count++] = getPageTitle(PageId::WiFiSettings);
     }
-
-    return 0;
+    actions[count] = Action::Back;
+    labels[count++] = "Back";
+    return count;
 }
 
 void AddBooksPage::refresh()
@@ -132,6 +249,7 @@ void AddBooksPage::refresh()
 void AddBooksPage::fetchAndRenderResult()
 {
     downloadStatus = "";
+    selectedActionIndex = 0;
     syncResult = getBookSync().fetchManifest();
     Serial.print(F("[BookSync] Result: "));
     Serial.print(static_cast<uint8_t>(syncResult));
@@ -186,13 +304,14 @@ void AddBooksPage::drawResultContent()
             syncResult == BookSyncResult::Success &&
             sync.getBookCount() > 0
         ) {
-            const char* titles[MAX_CATALOG_BOOKS];
+            const char* titles[MAX_CATALOG_ITEMS];
             getBookTitles(titles);
             drawSelectList(
                 titles,
                 sync.getBookCount(),
                 listState,
-                TWO_LINE_SELECT_LIST
+                TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION,
+                "Back"
             );
         }
         else
@@ -204,7 +323,7 @@ void AddBooksPage::drawResultContent()
                 details.length() > 0 ? details.c_str() : nullptr,
                 labels,
                 actionCount,
-                0
+                selectedActionIndex
             );
         }
         drawFooter(
@@ -212,6 +331,26 @@ void AddBooksPage::drawResultContent()
                 ? downloadStatus.c_str()
                 : nullptr
         );
+    }
+    while (display.nextPage());
+}
+
+void AddBooksPage::drawDownloadCompleteContent()
+{
+    display.setFullWindow();
+    display.firstPage();
+    do
+    {
+        display.fillScreen(Theme::BACKGROUND_COLOR);
+        drawHeader("ADD BOOKS", batteryPercent);
+        drawMessage(
+            "Download complete",
+            completedBookTitle.c_str(),
+            DOWNLOAD_COMPLETE_OPTIONS,
+            DOWNLOAD_COMPLETE_OPTION_COUNT,
+            selectedCompleteOption
+        );
+        drawFooter();
     }
     while (display.nextPage());
 }
@@ -258,6 +397,15 @@ void AddBooksPage::downloadSelectedBook()
         Serial.print(F("': "));
         Serial.println(static_cast<uint8_t>(installResult));
         downloadStatus = getBookInstallResultText(installResult);
+        if (installResult == BookInstallResult::Success)
+        {
+            completedBookId = book.id;
+            completedBookTitle = book.title;
+            selectedCompleteOption = 0;
+            downloadComplete = true;
+            drawDownloadCompleteContent();
+            return;
+        }
     }
     else
     {

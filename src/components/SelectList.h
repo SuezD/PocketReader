@@ -10,15 +10,21 @@ struct SelectListState
 
 struct SelectListConfig
 {
-    constexpr SelectListConfig(uint8_t nextTextLineCount = 1)
-        : textLineCount(nextTextLineCount)
+    constexpr SelectListConfig(
+        uint8_t nextTextLineCount = 1,
+        bool nextHasBottomAction = false
+    ) :
+        textLineCount(nextTextLineCount),
+        hasBottomAction(nextHasBottomAction)
     {
     }
 
     uint8_t textLineCount;
+    bool hasBottomAction;
 };
 
 constexpr SelectListConfig TWO_LINE_SELECT_LIST(2);
+constexpr SelectListConfig TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION(2, true);
 
 void resetSelectList(SelectListState& state);
 
@@ -36,7 +42,8 @@ void drawSelectList(
     const char* const items[],
     uint8_t itemCount,
     SelectListState& state,
-    SelectListConfig config = SelectListConfig()
+    SelectListConfig config = SelectListConfig(),
+    const char* bottomAction = nullptr
 );
 
 void redrawSelectListAfterMove(
@@ -44,5 +51,6 @@ void redrawSelectListAfterMove(
     uint8_t itemCount,
     const SelectListState& previousState,
     SelectListState& state,
-    SelectListConfig config = SelectListConfig()
+    SelectListConfig config = SelectListConfig(),
+    const char* bottomAction = nullptr
 );

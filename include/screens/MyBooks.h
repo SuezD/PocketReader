@@ -16,7 +16,10 @@ public:
     NavigationRequest select() override;
 
 private:
+    static constexpr uint8_t MAX_BOOK_ITEMS = 16;
     SelectedCachedBook& selectedBook;
     SelectListState listState = {};
     uint8_t selectedEmptyOption = 0;
+
+    uint8_t getItems(const char** items) const;
 };

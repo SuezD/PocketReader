@@ -15,10 +15,16 @@ namespace
         return Theme::HEADER_HEIGHT + 1 + Theme::SELECT_LIST_VERTICAL_PADDING;
     }
 
-    int getListBottom()
+    int getListBottom(SelectListConfig config)
     {
-        return display.height() - Theme::FOOTER_HEIGHT -
+        int bottom = display.height() - Theme::FOOTER_HEIGHT -
             Theme::SELECT_LIST_VERTICAL_PADDING;
+        if (config.hasBottomAction)
+        {
+            bottom -= Theme::SELECT_LIST_ITEM_HEIGHT +
+                Theme::SELECT_LIST_ITEM_GAP;
+        }
+        return bottom;
     }
 
     uint16_t getMaximumTextWidth()
@@ -80,7 +86,7 @@ namespace
         );
         return rowTop + getItemHeight(
             items[index], config, maximumTextWidth
-        ) <= getListBottom();
+        ) <= getListBottom(config);
     }
 
     void keepSelectionVisible(
@@ -115,7 +121,7 @@ namespace
         int usedHeight = getItemHeight(
             items[state.selectedIndex], config, maximumTextWidth
         );
-        const int availableHeight = getListBottom() - getListTop();
+        const int availableHeight = getListBottom(config) - getListTop();
 
         while (state.firstVisibleIndex > 0)
         {
@@ -211,10 +217,23 @@ void drawSelectList(
     const char* const items[],
     uint8_t itemCount,
     SelectListState& state,
-    SelectListConfig config
+    SelectListConfig config,
+    const char* bottomAction
 ) {
     if (items == nullptr || itemCount == 0) return;
-    keepSelectionVisible(items, itemCount, state, config);
+    const bool bottomSelected =
+        config.hasBottomAction && state.selectedIndex == itemCount;
+    if (bottomSelected)
+    {
+        SelectListState visibleState = state;
+        visibleState.selectedIndex = itemCount - 1;
+        keepSelectionVisible(items, itemCount, visibleState, config);
+        state.firstVisibleIndex = visibleState.firstVisibleIndex;
+    }
+    else
+    {
+        keepSelectionVisible(items, itemCount, state, config);
+    }
 
     const int contentLeft = Theme::PAGE_MARGIN;
     const int textX = contentLeft + Theme::SELECT_LIST_HORIZONTAL_PADDING +
@@ -229,7 +248,7 @@ void drawSelectList(
         const int itemHeight = getItemHeight(
             items[index], config, maximumTextWidth
         );
-        if (rowTop + itemHeight > getListBottom()) break;
+        if (rowTop + itemHeight > getListBottom(config)) break;
 
         if (index == state.selectedIndex)
         {
@@ -275,6 +294,27 @@ void drawSelectList(
         }
         rowTop += itemHeight + Theme::SELECT_LIST_ITEM_GAP;
     }
+
+    if (config.hasBottomAction && bottomAction != nullptr)
+    {
+        const int actionTop = getListBottom(config) +
+            Theme::SELECT_LIST_ITEM_GAP;
+        if (bottomSelected)
+        {
+            display.fillRect(
+                contentLeft,
+                actionTop,
+                Theme::SELECT_LIST_MARKER_WIDTH,
+                Theme::SELECT_LIST_ITEM_HEIGHT,
+                Theme::TEXT_COLOR
+            );
+        }
+        display.setCursor(
+            textX,
+            actionTop + Theme::SELECT_LIST_TEXT_BASELINE
+        );
+        display.print(bottomAction);
+    }
 }
 
 void redrawSelectListAfterMove(
@@ -282,12 +322,42 @@ void redrawSelectListAfterMove(
     uint8_t itemCount,
     const SelectListState& previousState,
     SelectListState& state,
-    SelectListConfig config
+    SelectListConfig config,
+    const char* bottomAction
 ) {
     if (
         items == nullptr || itemCount == 0 ||
         previousState.selectedIndex == state.selectedIndex
     ) {
+        return;
+    }
+
+    if (config.hasBottomAction)
+    {
+        const int listTop = getListTop();
+        const int listBottom = display.height() - Theme::FOOTER_HEIGHT -
+            Theme::SELECT_LIST_VERTICAL_PADDING;
+        display.setPartialWindow(
+            Theme::PAGE_MARGIN,
+            listTop,
+            display.width() - (Theme::PAGE_MARGIN * 2),
+            listBottom - listTop
+        );
+        display.firstPage();
+        do
+        {
+            display.fillRect(
+                Theme::PAGE_MARGIN,
+                listTop,
+                display.width() - (Theme::PAGE_MARGIN * 2),
+                listBottom - listTop,
+                Theme::BACKGROUND_COLOR
+            );
+            drawSelectList(
+                items, itemCount, state, config, bottomAction
+            );
+        }
+        while (display.nextPage());
         return;
     }
 
@@ -298,7 +368,7 @@ void redrawSelectListAfterMove(
     if (previousState.firstVisibleIndex != state.firstVisibleIndex)
     {
         const int listTop = getListTop();
-        const int listHeight = getListBottom() - listTop;
+        const int listHeight = getListBottom(config) - listTop;
         display.setPartialWindow(contentLeft, listTop, contentWidth, listHeight);
         display.firstPage();
         do
