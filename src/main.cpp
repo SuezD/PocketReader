@@ -199,7 +199,7 @@ namespace
         if (selectTapPending && now - firstSelectTapTime <= DOUBLE_TAP_MS)
         {
             selectTapPending = false;
-            navigateBack();
+            navigateHome(PageId::MainMenu);
             return;
         }
 
