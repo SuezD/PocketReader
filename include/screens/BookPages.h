@@ -1,6 +1,7 @@
 #pragma once
 
 #include "books/SelectedCachedBook.h"
+#include "components/CenteredOptionPage.h"
 #include "navigation/Page.h"
 #include "screens/Reader.h"
 
@@ -15,7 +16,7 @@ public:
 private:
     SelectedCachedBook& selectedBook;
     ReaderPage& readerPage;
-    uint8_t selectedIndex = 0;
+    CenteredOptionPage optionsPage;
 };
 
 class DeleteBookPage : public Page
@@ -29,5 +30,5 @@ public:
 private:
     SelectedCachedBook& selectedBook;
     ReaderPage& readerPage;
-    uint8_t selectedIndex = 0;
+    CenteredOptionPage optionsPage;
 };

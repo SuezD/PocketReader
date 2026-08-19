@@ -1,12 +1,5 @@
 #include "screens/BookPages.h"
 
-#include "Display.h"
-#include "Theme.h"
-#include "components/CenteredMessage.h"
-#include "components/Footer.h"
-#include "components/Header.h"
-#include "components/Selection.h"
-
 namespace
 {
     constexpr const char* BOOK_ACTIONS[] = { "Read", "Delete", "Back" };
@@ -14,25 +7,6 @@ namespace
     constexpr const char* DELETE_OPTIONS[] = { "Cancel", "Delete" };
     constexpr uint8_t DELETE_OPTION_COUNT = 2;
 
-    void drawOptions(
-        const char* heading,
-        const char* message,
-        const char* const options[],
-        uint8_t optionCount,
-        uint8_t selectedIndex,
-        uint8_t batteryPercent
-    ) {
-        display.setFullWindow();
-        display.firstPage();
-        do
-        {
-            display.fillScreen(Theme::BACKGROUND_COLOR);
-            drawHeader(heading, batteryPercent);
-            drawMessage(message, nullptr, options, optionCount, selectedIndex);
-            drawFooter();
-        }
-        while (display.nextPage());
-    }
 }
 
 BookActionsPage::BookActionsPage(
@@ -44,30 +18,24 @@ BookActionsPage::BookActionsPage(
 
 void BookActionsPage::draw(uint8_t batteryPercent)
 {
-    selectedIndex = 0;
-    drawOptions(
+    optionsPage.draw(
         "BOOK ACTIONS", selectedBook.getTitle(),
-        BOOK_ACTIONS, BOOK_ACTION_COUNT, selectedIndex, batteryPercent
+        nullptr, BOOK_ACTIONS, BOOK_ACTION_COUNT, batteryPercent
     );
 }
 
 bool BookActionsPage::handleInput(const InputState& input)
 {
-    const uint8_t previousIndex = selectedIndex;
-    if (!moveSelection(input, selectedIndex, BOOK_ACTION_COUNT))
-    {
-        return input.upPressed || input.downPressed;
-    }
-    redrawMessageSelection(
+    return optionsPage.handleInput(
+        input,
         selectedBook.getTitle(), nullptr,
-        BOOK_ACTIONS, BOOK_ACTION_COUNT, previousIndex, selectedIndex
+        BOOK_ACTIONS, BOOK_ACTION_COUNT
     );
-    return true;
 }
 
 NavigationRequest BookActionsPage::select()
 {
-    if (selectedIndex == 0)
+    if (optionsPage.selectedIndex() == 0)
     {
         const CachedBook* book = findCachedBook(selectedBook.getId());
         if (book == nullptr || !readerPage.open(book, getCachedBookPage(*book)))
@@ -77,7 +45,7 @@ NavigationRequest BookActionsPage::select()
         }
         return { NavigationMode::Push, PageId::ContinueReading };
     }
-    if (selectedIndex == 1)
+    if (optionsPage.selectedIndex() == 1)
     {
         return { NavigationMode::Push, PageId::DeleteBook };
     }
@@ -93,30 +61,24 @@ DeleteBookPage::DeleteBookPage(
 
 void DeleteBookPage::draw(uint8_t batteryPercent)
 {
-    selectedIndex = 0;
-    drawOptions(
+    optionsPage.draw(
         "DELETE BOOK", selectedBook.getTitle(),
-        DELETE_OPTIONS, DELETE_OPTION_COUNT, selectedIndex, batteryPercent
+        nullptr, DELETE_OPTIONS, DELETE_OPTION_COUNT, batteryPercent
     );
 }
 
 bool DeleteBookPage::handleInput(const InputState& input)
 {
-    const uint8_t previousIndex = selectedIndex;
-    if (!moveSelection(input, selectedIndex, DELETE_OPTION_COUNT))
-    {
-        return input.upPressed || input.downPressed;
-    }
-    redrawMessageSelection(
+    return optionsPage.handleInput(
+        input,
         selectedBook.getTitle(), nullptr,
-        DELETE_OPTIONS, DELETE_OPTION_COUNT, previousIndex, selectedIndex
+        DELETE_OPTIONS, DELETE_OPTION_COUNT
     );
-    return true;
 }
 
 NavigationRequest DeleteBookPage::select()
 {
-    if (selectedIndex == 0)
+    if (optionsPage.selectedIndex() == 0)
     {
         return { NavigationMode::Pop, PageId::BookActions };
     }

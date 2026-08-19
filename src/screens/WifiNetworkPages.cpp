@@ -1,11 +1,5 @@
 #include "screens/WifiNetworkPages.h"
 
-#include "Display.h"
-#include "Theme.h"
-#include "components/CenteredMessage.h"
-#include "components/Footer.h"
-#include "components/Header.h"
-#include "components/Selection.h"
 #include "wifi/WifiProvisioningService.h"
 #include "wifi/WifiService.h"
 
@@ -19,25 +13,6 @@ namespace
     constexpr uint8_t FORGET_OPTION_COUNT = 2;
     constexpr const char* BACK_OPTION[] = { "Back" };
 
-    void drawOptionPage(
-        const char* header,
-        const char* message,
-        const char* const options[],
-        uint8_t optionCount,
-        uint8_t selectedIndex,
-        uint8_t batteryPercent
-    ) {
-        display.setFullWindow();
-        display.firstPage();
-        do
-        {
-            display.fillScreen(Theme::BACKGROUND_COLOR);
-            drawHeader(header, batteryPercent);
-            drawMessage(message, nullptr, options, optionCount, selectedIndex);
-            drawFooter();
-        }
-        while (display.nextPage());
-    }
 }
 
 WifiNetworkActionsPage::WifiNetworkActionsPage(
@@ -48,37 +23,29 @@ WifiNetworkActionsPage::WifiNetworkActionsPage(
 
 void WifiNetworkActionsPage::draw(uint8_t batteryPercent)
 {
-    selectedIndex = 0;
-    drawOptionPage(
+    optionsPage.draw(
         "NETWORK ACTIONS", selectedNetwork.getSsid(),
-        NETWORK_ACTIONS, NETWORK_ACTION_COUNT,
-        selectedIndex, batteryPercent
+        nullptr, NETWORK_ACTIONS, NETWORK_ACTION_COUNT, batteryPercent
     );
 }
 
 bool WifiNetworkActionsPage::handleInput(const InputState& input)
 {
-    const uint8_t previousIndex = selectedIndex;
-    if (!moveSelection(input, selectedIndex, NETWORK_ACTION_COUNT))
-    {
-        return input.upPressed || input.downPressed;
-    }
-    redrawMessageSelection(
+    return optionsPage.handleInput(
+        input,
         selectedNetwork.getSsid(), nullptr,
-        NETWORK_ACTIONS, NETWORK_ACTION_COUNT,
-        previousIndex, selectedIndex
+        NETWORK_ACTIONS, NETWORK_ACTION_COUNT
     );
-    return true;
 }
 
 NavigationRequest WifiNetworkActionsPage::select()
 {
-    if (selectedIndex == 0)
+    if (optionsPage.selectedIndex() == 0)
     {
         getWifiManager().connectSavedNetwork(selectedNetwork.getSsid());
         return { NavigationMode::PopTo, PageId::WiFiSettings };
     }
-    if (selectedIndex == 1)
+    if (optionsPage.selectedIndex() == 1)
     {
         return { NavigationMode::Push, PageId::WifiForgetNetwork };
     }
@@ -93,38 +60,30 @@ WifiForgetNetworkPage::WifiForgetNetworkPage(
 
 void WifiForgetNetworkPage::draw(uint8_t batteryPercent)
 {
-    selectedIndex = 0;
     String message = "Forget ";
     message += selectedNetwork.getSsid();
     message += '?';
-    drawOptionPage(
+    optionsPage.draw(
         "FORGET NETWORK", message.c_str(),
-        FORGET_OPTIONS, FORGET_OPTION_COUNT,
-        selectedIndex, batteryPercent
+        nullptr, FORGET_OPTIONS, FORGET_OPTION_COUNT, batteryPercent
     );
 }
 
 bool WifiForgetNetworkPage::handleInput(const InputState& input)
 {
-    const uint8_t previousIndex = selectedIndex;
-    if (!moveSelection(input, selectedIndex, FORGET_OPTION_COUNT))
-    {
-        return input.upPressed || input.downPressed;
-    }
     String message = "Forget ";
     message += selectedNetwork.getSsid();
     message += '?';
-    redrawMessageSelection(
+    return optionsPage.handleInput(
+        input,
         message.c_str(), nullptr,
-        FORGET_OPTIONS, FORGET_OPTION_COUNT,
-        previousIndex, selectedIndex
+        FORGET_OPTIONS, FORGET_OPTION_COUNT
     );
-    return true;
 }
 
 NavigationRequest WifiForgetNetworkPage::select()
 {
-    if (selectedIndex == 0)
+    if (optionsPage.selectedIndex() == 0)
     {
         return { NavigationMode::Pop, PageId::WifiNetworkActions };
     }
@@ -153,9 +112,9 @@ void WifiSetupPage::draw(uint8_t batteryPercent)
     instructions += wifi.getSetupNetworkPassword();
     instructions += "\nOpen: ";
     instructions += wifi.getSetupAddress();
-    drawOptionPage(
+    optionsPage.draw(
         "ADD NETWORK", instructions.c_str(),
-        BACK_OPTION, 1, 0, batteryPercent
+        nullptr, BACK_OPTION, 1, batteryPercent
     );
 }
 

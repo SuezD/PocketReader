@@ -1,6 +1,7 @@
 #pragma once
 
 #include "navigation/Page.h"
+#include "components/CenteredOptionPage.h"
 #include "wifi/SelectedWifiNetwork.h"
 
 class WifiNetworkActionsPage : public Page
@@ -13,7 +14,7 @@ public:
 
 private:
     SelectedWifiNetwork& selectedNetwork;
-    uint8_t selectedIndex = 0;
+    CenteredOptionPage optionsPage;
 };
 
 class WifiForgetNetworkPage : public Page
@@ -26,7 +27,7 @@ public:
 
 private:
     SelectedWifiNetwork& selectedNetwork;
-    uint8_t selectedIndex = 0;
+    CenteredOptionPage optionsPage;
 };
 
 class WifiSetupPage : public Page
@@ -37,4 +38,7 @@ public:
     void draw(uint8_t batteryPercent) override;
     bool handleInput(const InputState& input) override;
     NavigationRequest select() override;
+
+private:
+    CenteredOptionPage optionsPage;
 };
