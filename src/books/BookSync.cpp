@@ -5,12 +5,15 @@
 #include <WiFiClientSecure.h>
 #include <string.h>
 
+#include <LittleFS.h>
+
 #include "books/BookServerConfig.h"
 #include "wifi/WifiService.h"
 
 namespace
 {
     constexpr uint16_t REQUEST_TIMEOUT_MS = 8000;
+    constexpr char TEMPORARY_DOWNLOAD_PATH[] = "/book-download.tmp";
 
     bool copyField(
         char* destination,
@@ -106,6 +109,93 @@ BookSyncResult BookSync::fetchManifest()
     return BookSyncResult::Success;
 }
 
+BookDownloadResult BookSync::downloadBook(const RemoteBook& book)
+{
+    httpStatus = 0;
+    if (!getWifiManager().isConnected())
+    {
+        return BookDownloadResult::NotConnected;
+    }
+
+    const String downloadUrl = book.downloadUrl == nullptr
+        ? ""
+        : book.downloadUrl;
+    const bool usesTls = downloadUrl.startsWith("https://");
+    if (usesTls && DevelopmentBookServer::ROOT_CA[0] == '\0')
+    {
+        return BookDownloadResult::TlsConfigurationMissing;
+    }
+    if (!usesTls && !downloadUrl.startsWith("http://"))
+    {
+        return BookDownloadResult::RequestFailed;
+    }
+
+    WiFiClient plainClient;
+    WiFiClientSecure secureClient;
+    WiFiClient* client = &plainClient;
+    if (usesTls)
+    {
+        secureClient.setCACert(DevelopmentBookServer::ROOT_CA);
+        client = &secureClient;
+    }
+
+    HTTPClient request;
+    request.setConnectTimeout(REQUEST_TIMEOUT_MS);
+    request.setTimeout(REQUEST_TIMEOUT_MS);
+    request.setUserAgent("PocketReader/1.0");
+    if (!request.begin(*client, downloadUrl))
+    {
+        return BookDownloadResult::RequestFailed;
+    }
+
+    httpStatus = request.GET();
+    if (httpStatus <= 0)
+    {
+        request.end();
+        return BookDownloadResult::RequestFailed;
+    }
+    if (httpStatus < 200 || httpStatus >= 300)
+    {
+        request.end();
+        return BookDownloadResult::HttpError;
+    }
+
+    const int expectedSize = request.getSize();
+    const size_t freeBytes = LittleFS.totalBytes() - LittleFS.usedBytes();
+    if (
+        expectedSize > 0 &&
+        static_cast<size_t>(expectedSize) > freeBytes
+    ) {
+        request.end();
+        return BookDownloadResult::NotEnoughSpace;
+    }
+
+    File output = LittleFS.open(TEMPORARY_DOWNLOAD_PATH, "w");
+    if (!output)
+    {
+        request.end();
+        return BookDownloadResult::StorageError;
+    }
+
+    const int writtenBytes = request.writeToStream(&output);
+    output.close();
+    request.end();
+
+    if (writtenBytes <= 0)
+    {
+        LittleFS.remove(TEMPORARY_DOWNLOAD_PATH);
+        return writtenBytes == 0
+            ? BookDownloadResult::EmptyFile
+            : BookDownloadResult::RequestFailed;
+    }
+    if (expectedSize >= 0 && writtenBytes != expectedSize)
+    {
+        LittleFS.remove(TEMPORARY_DOWNLOAD_PATH);
+        return BookDownloadResult::IncompleteDownload;
+    }
+    return BookDownloadResult::Success;
+}
+
 uint8_t BookSync::getBookCount() const
 {
     return bookCount;
@@ -120,6 +210,11 @@ const RemoteBook& BookSync::getBook(uint8_t index) const
 int BookSync::getHttpStatus() const
 {
     return httpStatus;
+}
+
+const char* BookSync::getTemporaryDownloadPath() const
+{
+    return TEMPORARY_DOWNLOAD_PATH;
 }
 
 void BookSync::clear()
@@ -204,4 +299,23 @@ const char* getBookSyncResultText(BookSyncResult result)
         case BookSyncResult::InvalidManifest: return "Server manifest is invalid";
     }
     return "Book sync failed";
+}
+
+const char* getBookDownloadResultText(BookDownloadResult result)
+{
+    switch (result)
+    {
+        case BookDownloadResult::Success: return "Download complete";
+        case BookDownloadResult::NotConnected: return "Wi-Fi disconnected";
+        case BookDownloadResult::TlsConfigurationMissing:
+            return "Server certificate missing";
+        case BookDownloadResult::RequestFailed: return "Download failed";
+        case BookDownloadResult::HttpError: return "Book server returned an error";
+        case BookDownloadResult::NotEnoughSpace: return "Not enough storage";
+        case BookDownloadResult::StorageError: return "Could not save download";
+        case BookDownloadResult::EmptyFile: return "Downloaded book was empty";
+        case BookDownloadResult::IncompleteDownload:
+            return "Download was interrupted";
+    }
+    return "Download failed";
 }

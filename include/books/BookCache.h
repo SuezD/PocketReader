@@ -12,6 +12,17 @@ struct CachedBook
     const char* filePath;
 };
 
+enum class BookInstallResult : uint8_t
+{
+    Success,
+    AlreadyCached,
+    LibraryFull,
+    InvalidBook,
+    MissingDownload,
+    StorageError,
+    ManifestError
+};
+
 class ReaderDocument : public TextDocument
 {
 public:
@@ -38,6 +49,12 @@ private:
 };
 
 bool initBookCache();
+BookInstallResult installCachedBook(
+    const char* id,
+    const char* title,
+    const char* temporaryPath
+);
+const char* getBookInstallResultText(BookInstallResult result);
 
 uint8_t getCachedBookCount();
 const char* const* getCachedBookTitles();

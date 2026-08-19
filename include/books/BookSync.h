@@ -21,13 +21,28 @@ enum class BookSyncResult : uint8_t
     InvalidManifest
 };
 
+enum class BookDownloadResult : uint8_t
+{
+    Success,
+    NotConnected,
+    TlsConfigurationMissing,
+    RequestFailed,
+    HttpError,
+    NotEnoughSpace,
+    StorageError,
+    EmptyFile,
+    IncompleteDownload
+};
+
 class BookSync
 {
 public:
     BookSyncResult fetchManifest();
+    BookDownloadResult downloadBook(const RemoteBook& book);
     uint8_t getBookCount() const;
     const RemoteBook& getBook(uint8_t index) const;
     int getHttpStatus() const;
+    const char* getTemporaryDownloadPath() const;
 
 private:
     static constexpr uint8_t MAX_BOOK_COUNT = 16;
@@ -52,3 +67,4 @@ private:
 
 BookSync& getBookSync();
 const char* getBookSyncResultText(BookSyncResult result);
+const char* getBookDownloadResultText(BookDownloadResult result);

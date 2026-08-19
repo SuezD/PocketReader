@@ -24,6 +24,7 @@ private:
     BookSyncResult syncResult = BookSyncResult::NotConfigured;
     uint8_t batteryPercent = 0;
     SelectListState listState = {};
+    String downloadStatus;
 
     uint8_t getActions(Action* actions, const char** labels) const;
     void refresh();
@@ -31,4 +32,5 @@ private:
     void drawLoadingContent();
     void drawResultContent();
     void getBookTitles(const char** titles) const;
+    void downloadSelectedBook();
 };

@@ -9,6 +9,9 @@
 namespace
 {
     constexpr char BOOK_MANIFEST_PATH[] = "/books.tsv";
+    constexpr char BOOK_MANIFEST_TEMP_PATH[] = "/books.tmp";
+    constexpr char BOOK_MANIFEST_BACKUP_PATH[] = "/books.bak";
+    constexpr char BOOK_DIRECTORY[] = "/books";
     constexpr char READING_PROGRESS_PATH[] = "/reading-progress.txt";
     constexpr char READING_PROGRESS_TEMP_PATH[] = "/reading-progress.tmp";
     constexpr char READING_PROGRESS_BACKUP_PATH[] = "/reading-progress.bak";
@@ -65,6 +68,99 @@ namespace
 
         memcpy(destination, source, length + 1);
         return true;
+    }
+
+    int getBookIndexById(const char* id)
+    {
+        if (id == nullptr) return -1;
+        for (uint8_t index = 0; index < bookCount; index++)
+        {
+            if (strcmp(id, books[index].id) == 0) return index;
+        }
+        return -1;
+    }
+
+    bool isValidBookId(const char* id)
+    {
+        if (id == nullptr || id[0] == '\0') return false;
+        for (size_t index = 0; id[index] != '\0'; index++)
+        {
+            const char character = id[index];
+            if (!(
+                (character >= 'a' && character <= 'z') ||
+                (character >= 'A' && character <= 'Z') ||
+                (character >= '0' && character <= '9') ||
+                character == '-' || character == '_'
+            )) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool writeBookManifest()
+    {
+        if (littleFsFileExists(BOOK_MANIFEST_TEMP_PATH))
+        {
+            LittleFS.remove(BOOK_MANIFEST_TEMP_PATH);
+        }
+        File manifest = LittleFS.open(BOOK_MANIFEST_TEMP_PATH, "w");
+        if (!manifest) return false;
+
+        for (uint8_t index = 0; index < bookCount; index++)
+        {
+            manifest.print(books[index].id);
+            manifest.print('\t');
+            manifest.print(books[index].title);
+            manifest.print('\t');
+            manifest.println(books[index].filePath);
+        }
+        manifest.close();
+
+        if (littleFsFileExists(BOOK_MANIFEST_BACKUP_PATH))
+        {
+            LittleFS.remove(BOOK_MANIFEST_BACKUP_PATH);
+        }
+        const bool hadManifest = littleFsFileExists(BOOK_MANIFEST_PATH);
+        if (
+            hadManifest &&
+            !LittleFS.rename(BOOK_MANIFEST_PATH, BOOK_MANIFEST_BACKUP_PATH)
+        ) {
+            LittleFS.remove(BOOK_MANIFEST_TEMP_PATH);
+            return false;
+        }
+        if (!LittleFS.rename(BOOK_MANIFEST_TEMP_PATH, BOOK_MANIFEST_PATH))
+        {
+            if (hadManifest)
+            {
+                LittleFS.rename(
+                    BOOK_MANIFEST_BACKUP_PATH,
+                    BOOK_MANIFEST_PATH
+                );
+            }
+            if (littleFsFileExists(BOOK_MANIFEST_TEMP_PATH))
+            {
+                LittleFS.remove(BOOK_MANIFEST_TEMP_PATH);
+            }
+            return false;
+        }
+        if (littleFsFileExists(BOOK_MANIFEST_BACKUP_PATH))
+        {
+            LittleFS.remove(BOOK_MANIFEST_BACKUP_PATH);
+        }
+        return true;
+    }
+
+    void removeLastBookRecord()
+    {
+        if (bookCount == 0) return;
+        bookCount--;
+        books[bookCount] = { nullptr, nullptr, nullptr };
+        bookTitles[bookCount] = nullptr;
+        bookIds[bookCount][0] = '\0';
+        bookTitleStorage[bookCount][0] = '\0';
+        bookPaths[bookCount][0] = '\0';
+        savedPages[bookCount] = 0;
     }
 
     bool addManifestBook(char* line)
@@ -132,6 +228,27 @@ namespace
     {
         bookCount = 0;
         memset(savedPages, 0, sizeof(savedPages));
+
+        if (
+            !littleFsFileExists(BOOK_MANIFEST_PATH) &&
+            littleFsFileExists(BOOK_MANIFEST_BACKUP_PATH)
+        ) {
+            LittleFS.rename(
+                BOOK_MANIFEST_BACKUP_PATH,
+                BOOK_MANIFEST_PATH
+            );
+        }
+        if (littleFsFileExists(BOOK_MANIFEST_TEMP_PATH))
+        {
+            LittleFS.remove(BOOK_MANIFEST_TEMP_PATH);
+        }
+        if (
+            littleFsFileExists(BOOK_MANIFEST_PATH) &&
+            littleFsFileExists(BOOK_MANIFEST_BACKUP_PATH)
+        ) {
+            LittleFS.remove(BOOK_MANIFEST_BACKUP_PATH);
+        }
+
         File manifestFile = LittleFS.open(BOOK_MANIFEST_PATH, "r");
 
         if (!manifestFile)
@@ -358,6 +475,112 @@ bool initBookCache()
     loadBookManifest();
     loadReadingProgress();
     return true;
+}
+
+BookInstallResult installCachedBook(
+    const char* id,
+    const char* title,
+    const char* temporaryPath
+)
+{
+    if (
+        !fileSystemReady || !isValidBookId(id) ||
+        title == nullptr || title[0] == '\0' ||
+        strlen(id) > MAX_BOOK_ID_LENGTH ||
+        strlen(title) > MAX_BOOK_TITLE_LENGTH
+    ) {
+        return BookInstallResult::InvalidBook;
+    }
+    if (getBookIndexById(id) >= 0)
+    {
+        if (temporaryPath != nullptr) LittleFS.remove(temporaryPath);
+        return BookInstallResult::AlreadyCached;
+    }
+    if (bookCount >= MAX_BOOK_COUNT) return BookInstallResult::LibraryFull;
+    if (
+        temporaryPath == nullptr ||
+        !littleFsFileExists(temporaryPath)
+    ) {
+        return BookInstallResult::MissingDownload;
+    }
+
+    File downloadedFile = LittleFS.open(temporaryPath, "r");
+    if (!downloadedFile || downloadedFile.size() == 0)
+    {
+        downloadedFile.close();
+        LittleFS.remove(temporaryPath);
+        return BookInstallResult::MissingDownload;
+    }
+    downloadedFile.close();
+
+    if (!littleFsFileExists(BOOK_DIRECTORY) && !LittleFS.mkdir(BOOK_DIRECTORY))
+    {
+        return BookInstallResult::StorageError;
+    }
+
+    char finalPath[MAX_BOOK_PATH_LENGTH + 1];
+    const int pathLength = snprintf(
+        finalPath,
+        sizeof(finalPath),
+        "%s/%s.txt",
+        BOOK_DIRECTORY,
+        id
+    );
+    if (pathLength < 0 || pathLength >= static_cast<int>(sizeof(finalPath)))
+    {
+        return BookInstallResult::InvalidBook;
+    }
+    if (littleFsFileExists(finalPath)) LittleFS.remove(finalPath);
+    if (!LittleFS.rename(temporaryPath, finalPath))
+    {
+        return BookInstallResult::StorageError;
+    }
+
+    char manifestLine[MAX_MANIFEST_LINE_LENGTH + 1];
+    const int lineLength = snprintf(
+        manifestLine,
+        sizeof(manifestLine),
+        "%s\t%s\t%s",
+        id,
+        title,
+        finalPath
+    );
+    if (
+        lineLength < 0 ||
+        lineLength >= static_cast<int>(sizeof(manifestLine)) ||
+        !addManifestBook(manifestLine)
+    ) {
+        LittleFS.remove(finalPath);
+        return BookInstallResult::InvalidBook;
+    }
+
+    if (!writeBookManifest())
+    {
+        removeLastBookRecord();
+        LittleFS.remove(finalPath);
+        return BookInstallResult::ManifestError;
+    }
+
+    Serial.print(F("Installed cached book: "));
+    Serial.print(title);
+    Serial.print(F(" -> "));
+    Serial.println(finalPath);
+    return BookInstallResult::Success;
+}
+
+const char* getBookInstallResultText(BookInstallResult result)
+{
+    switch (result)
+    {
+        case BookInstallResult::Success: return "Added to My Books";
+        case BookInstallResult::AlreadyCached: return "Already in My Books";
+        case BookInstallResult::LibraryFull: return "My Books is full";
+        case BookInstallResult::InvalidBook: return "Invalid book details";
+        case BookInstallResult::MissingDownload: return "Downloaded file is missing";
+        case BookInstallResult::StorageError: return "Could not store book";
+        case BookInstallResult::ManifestError: return "Could not update library";
+    }
+    return "Could not add book";
 }
 
 uint8_t getCachedBookCount()
