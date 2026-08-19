@@ -5,6 +5,7 @@
 class WifiSettingsPage : public Page
 {
 public:
+    void onEnter() override;
     void draw(uint8_t batteryPercent) override;
     bool handleInput(const InputState& input) override;
     NavigationRequest select() override;

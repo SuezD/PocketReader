@@ -23,12 +23,16 @@ namespace
     constexpr const char* SETUP_OPTIONS[] = { "Back" };
 }
 
-void WifiSettingsPage::draw(uint8_t nextBatteryPercent)
+void WifiSettingsPage::onEnter()
 {
-    batteryPercent = nextBatteryPercent;
     state = State::NetworkList;
     optionSelection = 0;
     getWifiProvisioningPortal().stop();
+}
+
+void WifiSettingsPage::draw(uint8_t nextBatteryPercent)
+{
+    batteryPercent = nextBatteryPercent;
 
     const char* items[MAX_ITEMS];
     const uint8_t itemCount = getItems(items);

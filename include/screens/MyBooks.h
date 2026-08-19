@@ -10,6 +10,7 @@ class MyBooksPage : public Page
 public:
     explicit MyBooksPage(ReaderPage& readerPage);
 
+    void onEnter() override;
     void draw(uint8_t batteryPercent) override;
     bool handleInput(const InputState& input) override;
     NavigationRequest select() override;

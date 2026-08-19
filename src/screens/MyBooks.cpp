@@ -29,11 +29,15 @@ MyBooksPage::MyBooksPage(ReaderPage& nextReaderPage)
 {
 }
 
+void MyBooksPage::onEnter()
+{
+    state = State::Catalogue;
+    optionSelection = 0;
+}
+
 void MyBooksPage::draw(uint8_t nextBatteryPercent)
 {
     batteryPercent = nextBatteryPercent;
-    state = State::Catalogue;
-    optionSelection = 0;
 
     display.setFullWindow();
     display.firstPage();
