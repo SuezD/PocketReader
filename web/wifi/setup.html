@@ -8,27 +8,37 @@
 </head>
 <body>
   <h1>Pocket Reader Setup</h1>
-  <h2>Book Server</h2>
-  <form id="book-server-form">
-    <label for="manifest-url">Manifest URL</label>
-    <input id="manifest-url" name="manifestUrl" type="url" maxlength="255" required placeholder="http://192.168.1.120:8080/books.tsv">
-    <label for="access-token">Access Token (optional)</label>
-    <input id="access-token" name="accessToken" type="password" maxlength="255" autocomplete="new-password" placeholder="Leave blank for no access token">
-    <button type="submit">Save Book Server</button>
-    <p id="book-server-status"></p>
-  </form>
-  <hr>
-  <h2>Wi-Fi</h2>
-  <form method="post" action="/connect">
-    <label for="ssid">Network name</label>
-    <input id="ssid" name="ssid" maxlength="32" required autocomplete="off" placeholder="Type to filter or enter a hidden network">
-    <div id="networks" aria-label="Nearby networks"></div>
-    <button id="scan" type="button">Scan Again</button>
-    <p id="scan-status">Scanning for nearby networks...</p>
-    <label for="password">Password</label>
-    <input id="password" name="password" type="password" maxlength="63">
-    <button type="submit">Connect</button>
-  </form>
+  <details id="book-server-section" open>
+    <summary>
+      <span>Book Server</span>
+      <span id="book-server-summary" class="section-status">Not configured</span>
+    </summary>
+    <form id="book-server-form">
+      <label for="manifest-url">Manifest URL</label>
+      <input id="manifest-url" name="manifestUrl" type="url" maxlength="255" required placeholder="http://192.168.1.120:8080/books.tsv">
+      <label for="access-token">Access Token (optional)</label>
+      <input id="access-token" name="accessToken" type="password" maxlength="255" autocomplete="new-password" placeholder="Leave blank for no access token">
+      <button type="submit">Save Book Server</button>
+      <button id="test-book-server" class="secondary" type="button">Test Connection</button>
+      <p id="book-server-status"></p>
+    </form>
+  </details>
+  <details id="wifi-section" open>
+    <summary>
+      <span>Wi-Fi</span>
+      <span id="wifi-summary" class="section-status">Not connected</span>
+    </summary>
+    <form method="post" action="/connect">
+      <label for="ssid">Network name</label>
+      <input id="ssid" name="ssid" maxlength="32" required autocomplete="off" placeholder="Type to filter or enter a hidden network">
+      <div id="networks" aria-label="Nearby networks"></div>
+      <button id="scan" type="button">Scan Again</button>
+      <p id="scan-status">Scanning for nearby networks...</p>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" maxlength="63">
+      <button type="submit">Connect</button>
+    </form>
+  </details>
   <script src="/setup.js"></script>
 </body>
 </html>

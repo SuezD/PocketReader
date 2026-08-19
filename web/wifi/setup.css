@@ -5,14 +5,41 @@ body {
   padding: 0 1rem;
 }
 
-h2 {
-  margin-top: 2rem;
+details {
+  border-top: 1px solid #bbb;
+  padding: 1rem 0;
 }
 
-hr {
-  margin-top: 2.5rem;
-  border: 0;
-  border-top: 1px solid #bbb;
+summary {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.section-status {
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: normal;
+  text-align: right;
+}
+
+.section-status.configured::before {
+  content: '● ';
+  color: #777;
+}
+
+.section-status.success::before {
+  content: '✓ ';
+  color: #16803a;
+}
+
+.section-status.failure::before {
+  content: '✕ ';
+  color: #b42318;
 }
 
 label,
@@ -21,6 +48,12 @@ button {
   display: block;
   width: 100%;
   box-sizing: border-box;
+}
+
+button.secondary {
+  margin-top: 0.5rem;
+  background: #eee;
+  border: 1px solid #999;
 }
 
 label {

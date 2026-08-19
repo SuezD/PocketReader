@@ -32,6 +32,7 @@ private:
     void handleStatus();
     void handleBookServer();
     void handleSaveBookServer();
+    void handleTestBookServer();
     void handleNotFound();
     void startScan();
 };

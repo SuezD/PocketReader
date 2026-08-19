@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 
+#include "books/BookSync.h"
 #include "books/BookServerSettings.h"
 #include "generated/WifiWebAssets.h"
 #include "wifi/WifiService.h"
@@ -86,6 +87,9 @@ bool WifiProvisioningPortal::start()
     });
     server.on("/book-server", HTTP_POST, [this]() {
         handleSaveBookServer();
+    });
+    server.on("/book-server/test", HTTP_POST, [this]() {
+        handleTestBookServer();
     });
     server.on("/generate_204", HTTP_ANY, [this]() { handleNotFound(); });
     server.on("/gen_204", HTTP_ANY, [this]() { handleNotFound(); });
@@ -251,7 +255,9 @@ void WifiProvisioningPortal::handleStatus()
     const WifiState state = getWifiManager().getState();
     String response = "{\"state\":\"";
     response += getStatusName(state);
-    response += "\",\"message\":\"";
+    response += "\",\"network\":";
+    appendJsonString(response, getWifiManager().getNetworkName());
+    response += ",\"message\":\"";
 
     if (state == WifiState::Connected)
     {
@@ -310,6 +316,24 @@ void WifiProvisioningPortal::handleSaveBookServer()
     }
 
     server.send(200, "application/json", "{\"saved\":true}");
+}
+
+void WifiProvisioningPortal::handleTestBookServer()
+{
+    const BookSyncResult result = getBookSync().fetchManifest();
+    String response = "{\"success\":";
+    response += result == BookSyncResult::Success ? "true" : "false";
+    response += ",\"message\":";
+    appendJsonString(response, getBookSyncResultText(result));
+    response += '}';
+
+    Serial.print(F("[BookServer] Portal test result: "));
+    Serial.println(static_cast<uint8_t>(result));
+    server.send(
+        result == BookSyncResult::Success ? 200 : 502,
+        "application/json",
+        response
+    );
 }
 
 void WifiProvisioningPortal::handleNotFound()
