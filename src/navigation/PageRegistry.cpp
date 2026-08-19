@@ -6,8 +6,6 @@
 #include "screens/MyBooks.h"
 #include "screens/Reader.h"
 #include "screens/WifiSettings.h"
-#include "screens/WifiNetworkPages.h"
-#include "wifi/SelectedWifiNetwork.h"
 #include "books/SelectedCachedBook.h"
 
 namespace
@@ -19,11 +17,7 @@ namespace
     BookActionsPage bookActionsPage(selectedCachedBook, continueReadingPage);
     DeleteBookPage deleteBookPage(selectedCachedBook, continueReadingPage);
     AddBooksPage addBooksPage(continueReadingPage);
-    SelectedWifiNetwork selectedWifiNetwork;
-    WifiSettingsPage wiFiSettingsPage(selectedWifiNetwork);
-    WifiNetworkActionsPage wifiNetworkActionsPage(selectedWifiNetwork);
-    WifiForgetNetworkPage wifiForgetNetworkPage(selectedWifiNetwork);
-    WifiSetupPage wifiSetupPage;
+    WifiSettingsPage wiFiSettingsPage;
 
     const PageDefinition PAGES[] = {
 #define PAGE(id, title, instance) { PageId::id, title, &instance },
