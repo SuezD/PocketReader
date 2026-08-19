@@ -3,6 +3,7 @@
 #include <HTTPClient.h>
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <LittleFS.h>
@@ -203,7 +204,7 @@ uint8_t BookSync::getBookCount() const
 
 const RemoteBook& BookSync::getBook(uint8_t index) const
 {
-    static const RemoteBook EMPTY_BOOK = { "", "", "" };
+    static const RemoteBook EMPTY_BOOK = { "", "", "", 0 };
     return index < bookCount ? books[index] : EMPTY_BOOK;
 }
 
@@ -259,7 +260,24 @@ bool BookSync::addBook(char* line)
     if (secondTab == nullptr) return false;
     *secondTab = '\0';
     char* url = secondTab + 1;
-    if (strchr(url, '\t') != nullptr || !isDownloadUrl(url)) return false;
+    char* thirdTab = strchr(url, '\t');
+    uint32_t sizeBytes = 0;
+    if (thirdTab != nullptr)
+    {
+        *thirdTab = '\0';
+        const char* sizeText = thirdTab + 1;
+        char* sizeEnd = nullptr;
+        const unsigned long parsedSize = strtoul(sizeText, &sizeEnd, 10);
+        if (
+            sizeText[0] == '\0' || sizeEnd == nullptr ||
+            sizeEnd[0] != '\0' || parsedSize == 0 ||
+            parsedSize > UINT32_MAX
+        ) {
+            return false;
+        }
+        sizeBytes = static_cast<uint32_t>(parsedSize);
+    }
+    if (!isDownloadUrl(url)) return false;
 
     for (uint8_t index = 0; index < bookCount; index++)
     {
@@ -273,7 +291,7 @@ bool BookSync::addBook(char* line)
         return false;
     }
     books[bookCount] = {
-        ids[bookCount], titles[bookCount], urls[bookCount]
+        ids[bookCount], titles[bookCount], urls[bookCount], sizeBytes
     };
     bookCount++;
     return true;

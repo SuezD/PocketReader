@@ -22,4 +22,10 @@ private:
     uint8_t selectedEmptyOption = 0;
 
     uint8_t getItems(const char** items) const;
+    void getFooterText(
+        char* leftText,
+        size_t leftTextSize,
+        char* rightText,
+        size_t rightTextSize
+    ) const;
 };

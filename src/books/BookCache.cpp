@@ -690,6 +690,27 @@ const CachedBook* findCachedBook(const char* id)
     return index >= 0 ? &books[index] : nullptr;
 }
 
+size_t getAvailableBookStorageBytes()
+{
+    if (!fileSystemReady) return 0;
+    return LittleFS.totalBytes() - LittleFS.usedBytes();
+}
+
+size_t getCachedBookSizeBytes(const CachedBook& book)
+{
+    if (
+        !fileSystemReady || book.filePath == nullptr ||
+        book.filePath[0] == '\0'
+    ) {
+        return 0;
+    }
+    File file = LittleFS.open(book.filePath, "r");
+    if (!file) return 0;
+    const size_t size = file.size();
+    file.close();
+    return size;
+}
+
 uint16_t getCachedBookPage(const CachedBook& book)
 {
     const int index = getBookIndex(book);

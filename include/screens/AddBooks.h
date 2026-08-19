@@ -80,5 +80,13 @@ private:
     uint8_t getAvailableBookCount() const;
     const RemoteBook* getAvailableBook(uint8_t availableIndex) const;
     void getBookTitles(const char** titles) const;
+    void getFooterText(
+        char* leftText,
+        size_t leftTextSize,
+        char* rightText,
+        size_t rightTextSize
+    ) const;
+    void drawStorageFooter() const;
+    void redrawStorageFooter() const;
     void downloadSelectedBook();
 };

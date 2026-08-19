@@ -71,6 +71,8 @@ uint8_t getCachedBookCount();
 const char* const* getCachedBookTitles();
 const CachedBook& getCachedBook(uint8_t index);
 const CachedBook* findCachedBook(const char* id);
+size_t getAvailableBookStorageBytes();
+size_t getCachedBookSizeBytes(const CachedBook& book);
 uint16_t getCachedBookPage(const CachedBook& book);
 void saveCachedBookPage(const CachedBook& book, uint16_t page);
 const CachedBook* getLastOpenedCachedBook();

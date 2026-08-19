@@ -1,5 +1,7 @@
 #include "screens/MyBooks.h"
 
+#include <stdio.h>
+
 #include "Display.h"
 #include "Theme.h"
 #include "components/CenteredMessage.h"
@@ -7,6 +9,7 @@
 #include "components/Header.h"
 #include "components/SelectList.h"
 #include "components/Selection.h"
+#include "helpers/StorageText.h"
 #include "navigation/PageRegistry.h"
 
 namespace
@@ -23,6 +26,12 @@ MyBooksPage::MyBooksPage(SelectedCachedBook& nextSelectedBook)
 
 void MyBooksPage::draw(uint8_t batteryPercent)
 {
+    char leftFooter[32];
+    char rightFooter[32];
+    getFooterText(
+        leftFooter, sizeof(leftFooter),
+        rightFooter, sizeof(rightFooter)
+    );
     display.setFullWindow();
     display.firstPage();
 
@@ -61,7 +70,10 @@ void MyBooksPage::draw(uint8_t batteryPercent)
             );
         }
 
-        drawFooter(selectedBook.getStatus());
+        drawFooter(
+            leftFooter[0] == '\0' ? nullptr : leftFooter,
+            rightFooter
+        );
     }
     while (display.nextPage());
 }
@@ -123,6 +135,17 @@ bool MyBooksPage::handleInput(const InputState& input)
         TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTIONS,
         MY_BOOKS_BOTTOM_ACTIONS
     );
+    selectedBook.setStatus("");
+    char leftFooter[32];
+    char rightFooter[32];
+    getFooterText(
+        leftFooter, sizeof(leftFooter),
+        rightFooter, sizeof(rightFooter)
+    );
+    redrawFooter(
+        leftFooter[0] == '\0' ? nullptr : leftFooter,
+        rightFooter
+    );
 
     return true;
 }
@@ -157,4 +180,38 @@ uint8_t MyBooksPage::getItems(const char** items) const
         items[index] = titles[index];
     }
     return bookCount;
+}
+
+void MyBooksPage::getFooterText(
+    char* leftText,
+    size_t leftTextSize,
+    char* rightText,
+    size_t rightTextSize
+) const {
+    leftText[0] = '\0';
+    const char* status = selectedBook.getStatus();
+    if (status[0] != '\0')
+    {
+        snprintf(leftText, leftTextSize, "%s", status);
+    }
+    else if (
+        getCachedBookCount() > 0 &&
+        listState.selectedIndex < getCachedBookCount()
+    ) {
+        char sizeText[16];
+        formatStorageSize(
+            getCachedBookSizeBytes(getCachedBook(listState.selectedIndex)),
+            sizeText,
+            sizeof(sizeText)
+        );
+        snprintf(leftText, leftTextSize, "%s", sizeText);
+    }
+
+    char freeText[16];
+    formatStorageSize(
+        getAvailableBookStorageBytes(),
+        freeText,
+        sizeof(freeText)
+    );
+    snprintf(rightText, rightTextSize, "Free: %s", freeText);
 }

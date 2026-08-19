@@ -7,6 +7,7 @@ struct RemoteBook
     const char* id;
     const char* title;
     const char* downloadUrl;
+    uint32_t sizeBytes;
 };
 
 enum class BookSyncResult : uint8_t
@@ -51,7 +52,7 @@ private:
     static constexpr size_t MAX_URL_LENGTH = 255;
     static constexpr size_t MAX_MANIFEST_BYTES = 12288;
     static constexpr size_t MAX_LINE_LENGTH =
-        MAX_ID_LENGTH + MAX_TITLE_LENGTH + MAX_URL_LENGTH + 3;
+        MAX_ID_LENGTH + MAX_TITLE_LENGTH + MAX_URL_LENGTH + 14;
 
     RemoteBook books[MAX_BOOK_COUNT] = {};
     char ids[MAX_BOOK_COUNT][MAX_ID_LENGTH + 1] = {};

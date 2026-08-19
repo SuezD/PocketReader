@@ -1,5 +1,7 @@
 #include "screens/AddBooks.h"
 
+#include <stdio.h>
+
 #include "Display.h"
 #include "Theme.h"
 #include "books/BookSync.h"
@@ -10,6 +12,7 @@
 #include "components/PageContent.h"
 #include "components/SelectList.h"
 #include "components/Selection.h"
+#include "helpers/StorageText.h"
 #include "navigation/PageRegistry.h"
 
 namespace
@@ -41,7 +44,7 @@ void AddBooksPage::draw(uint8_t nextBatteryPercent)
         display.fillScreen(Theme::BACKGROUND_COLOR);
         drawHeader("ADD BOOKS", batteryPercent);
         drawMessage("Fetching book catalogue...");
-        drawFooter();
+        drawStorageFooter();
     }
     while (display.nextPage());
 
@@ -134,6 +137,7 @@ bool AddBooksPage::handleInput(const InputState& input)
             TWO_LINE_SELECT_LIST_WITH_THREE_BOTTOM_ACTIONS,
             CATALOGUE_BOTTOM_ACTIONS
         );
+        redrawStorageFooter();
         return true;
     }
 
@@ -347,7 +351,7 @@ void AddBooksPage::drawLoadingContent()
     {
         clearPageBody();
         drawMessage("Fetching book catalogue...");
-        drawFooter();
+        drawStorageFooter();
     }
     while (display.nextPage());
 }
@@ -404,11 +408,7 @@ void AddBooksPage::drawResultContent()
                 selectedActionIndex
             );
         }
-        drawFooter(
-            downloadStatus.length() > 0
-                ? downloadStatus.c_str()
-                : nullptr
-        );
+        drawStorageFooter();
     }
     while (display.nextPage());
 }
@@ -427,7 +427,7 @@ void AddBooksPage::drawDownloadCompleteContent()
             DOWNLOAD_COMPLETE_OPTION_COUNT,
             selectedCompleteOption
         );
-        drawFooter();
+        drawStorageFooter();
     }
     while (display.nextPage());
 }
@@ -449,7 +449,7 @@ void AddBooksPage::drawDownloadFailedContent()
             optionCount,
             selectedFailureOption
         );
-        drawFooter();
+        drawStorageFooter();
     }
     while (display.nextPage());
 }
@@ -525,6 +525,83 @@ const RemoteBook* AddBooksPage::getAvailableBook(
     return nullptr;
 }
 
+void AddBooksPage::getFooterText(
+    char* leftText,
+    size_t leftTextSize,
+    char* rightText,
+    size_t rightTextSize
+) const {
+    leftText[0] = '\0';
+    const RemoteBook* selectedBook = nullptr;
+    if (
+        (state == State::Catalogue || state == State::Downloading) &&
+        listState.selectedIndex < getAvailableBookCount()
+    ) {
+        selectedBook = getAvailableBook(listState.selectedIndex);
+    }
+    else if (
+        state == State::DownloadComplete ||
+        state == State::DownloadFailed
+    ) {
+        BookSync& sync = getBookSync();
+        for (uint8_t index = 0; index < sync.getBookCount(); index++)
+        {
+            const RemoteBook& book = sync.getBook(index);
+            if (completedBookId.equals(book.id))
+            {
+                selectedBook = &book;
+                break;
+            }
+        }
+    }
+
+    if (selectedBook != nullptr)
+    {
+        if (selectedBook->sizeBytes == 0)
+        {
+            snprintf(leftText, leftTextSize, "Unknown");
+        }
+        else
+        {
+            char sizeText[16];
+            formatStorageSize(
+                selectedBook->sizeBytes,
+                sizeText,
+                sizeof(sizeText)
+            );
+            snprintf(leftText, leftTextSize, "%s", sizeText);
+        }
+    }
+
+    char freeText[16];
+    formatStorageSize(
+        getAvailableBookStorageBytes(),
+        freeText,
+        sizeof(freeText)
+    );
+    snprintf(rightText, rightTextSize, "Free: %s", freeText);
+}
+
+void AddBooksPage::drawStorageFooter() const
+{
+    char leftText[32];
+    char rightText[32];
+    getFooterText(
+        leftText, sizeof(leftText), rightText, sizeof(rightText)
+    );
+    drawFooter(leftText[0] == '\0' ? nullptr : leftText, rightText);
+}
+
+void AddBooksPage::redrawStorageFooter() const
+{
+    char leftText[32];
+    char rightText[32];
+    getFooterText(
+        leftText, sizeof(leftText), rightText, sizeof(rightText)
+    );
+    redrawFooter(leftText[0] == '\0' ? nullptr : leftText, rightText);
+}
+
 void AddBooksPage::downloadSelectedBook()
 {
     BookSync& sync = getBookSync();
@@ -539,7 +616,7 @@ void AddBooksPage::downloadSelectedBook()
     {
         clearPageBody();
         drawMessage("Downloading", book.title);
-        drawFooter();
+        drawStorageFooter();
     }
     while (display.nextPage());
 
