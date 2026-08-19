@@ -5,6 +5,7 @@
 #include "components/CenteredMessage.h"
 #include "components/Footer.h"
 #include "components/Header.h"
+#include "components/Selection.h"
 #include "wifi/WifiProvisioningService.h"
 #include "wifi/WifiService.h"
 
@@ -17,29 +18,6 @@ namespace
     constexpr const char* FORGET_OPTIONS[] = { "Cancel", "Forget" };
     constexpr uint8_t FORGET_OPTION_COUNT = 2;
     constexpr const char* BACK_OPTION[] = { "Back" };
-
-    bool moveSelection(
-        const InputState& input,
-        uint8_t& selectedIndex,
-        uint8_t optionCount
-    ) {
-        const uint8_t previousIndex = selectedIndex;
-        if (input.upPressed && !input.downPressed && selectedIndex > 0)
-        {
-            selectedIndex--;
-        }
-        else if (
-            input.downPressed && !input.upPressed &&
-            selectedIndex + 1 < optionCount
-        ) {
-            selectedIndex++;
-        }
-        else if (!input.upPressed && !input.downPressed)
-        {
-            return false;
-        }
-        return selectedIndex != previousIndex;
-    }
 
     void drawOptionPage(
         const char* header,

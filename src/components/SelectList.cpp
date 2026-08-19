@@ -5,6 +5,7 @@
 #include "Display.h"
 #include "Theme.h"
 #include "helpers/TextUtils.h"
+#include "Selection.h"
 
 namespace
 {
@@ -202,15 +203,12 @@ void resetSelectList(SelectListState& state)
 
 void moveSelectListUp(SelectListState& state, uint8_t itemCount)
 {
-    if (itemCount > 0 && state.selectedIndex > 0) state.selectedIndex--;
+    selectPrevious(state.selectedIndex, itemCount);
 }
 
 void moveSelectListDown(SelectListState& state, uint8_t itemCount)
 {
-    if (itemCount > 0 && state.selectedIndex + 1 < itemCount)
-    {
-        state.selectedIndex++;
-    }
+    selectNext(state.selectedIndex, itemCount);
 }
 
 void drawSelectList(

@@ -9,6 +9,7 @@
 #include "components/Header.h"
 #include "components/PageContent.h"
 #include "components/SelectList.h"
+#include "components/Selection.h"
 #include "navigation/PageRegistry.h"
 
 namespace
@@ -53,19 +54,11 @@ bool AddBooksPage::handleInput(const InputState& input)
     if (downloadComplete)
     {
         const uint8_t previousIndex = selectedCompleteOption;
-        if (
-            input.upPressed && !input.downPressed &&
-            selectedCompleteOption > 0
-        ) {
-            selectedCompleteOption--;
-        }
-        else if (
-            input.downPressed && !input.upPressed &&
-            selectedCompleteOption + 1 < DOWNLOAD_COMPLETE_OPTION_COUNT
-        ) {
-            selectedCompleteOption++;
-        }
-        else
+        if (!moveSelection(
+            input,
+            selectedCompleteOption,
+            DOWNLOAD_COMPLETE_OPTION_COUNT
+        ))
         {
             return input.upPressed || input.downPressed;
         }
@@ -124,17 +117,7 @@ bool AddBooksPage::handleInput(const InputState& input)
     const char* labels[MAX_ACTION_COUNT];
     const uint8_t actionCount = getActions(actions, labels);
     const uint8_t previousIndex = selectedActionIndex;
-    if (input.upPressed && !input.downPressed && selectedActionIndex > 0)
-    {
-        selectedActionIndex--;
-    }
-    else if (
-        input.downPressed && !input.upPressed &&
-        selectedActionIndex + 1 < actionCount
-    ) {
-        selectedActionIndex++;
-    }
-    else
+    if (!moveSelection(input, selectedActionIndex, actionCount))
     {
         return input.upPressed || input.downPressed;
     }

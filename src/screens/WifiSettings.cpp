@@ -5,6 +5,7 @@
 #include "components/CenteredMessage.h"
 #include "components/Footer.h"
 #include "components/Header.h"
+#include "components/Selection.h"
 #include "wifi/WifiService.h"
 
 namespace
@@ -44,17 +45,7 @@ bool WifiSettingsPage::handleInput(const InputState& input)
     const uint8_t itemCount = getItems(items);
     const uint8_t previousIndex = selectedIndex;
 
-    if (input.upPressed && !input.downPressed && selectedIndex > 0)
-    {
-        selectedIndex--;
-    }
-    else if (
-        input.downPressed && !input.upPressed &&
-        selectedIndex + 1 < itemCount
-    ) {
-        selectedIndex++;
-    }
-    else if (!input.upPressed && !input.downPressed)
+    if (!moveSelection(input, selectedIndex, itemCount))
     {
         return false;
     }

@@ -9,6 +9,7 @@
 #include "components/Footer.h"
 #include "components/Header.h"
 #include "components/PageContent.h"
+#include "components/Selection.h"
 #include "navigation/PageRegistry.h"
 
 namespace
@@ -208,16 +209,7 @@ bool ReaderPage::handleInput(const InputState& input)
     {
         const uint8_t previousIndex = selectedEmptyOption;
 
-        if (input.upPressed && !input.downPressed && selectedEmptyOption > 0)
-        {
-            selectedEmptyOption--;
-        }
-        else if (
-            input.downPressed && !input.upPressed &&
-            selectedEmptyOption + 1 < READER_EMPTY_OPTION_COUNT
-        ) {
-            selectedEmptyOption++;
-        }
+        moveSelection(input, selectedEmptyOption, READER_EMPTY_OPTION_COUNT);
 
         if (selectedEmptyOption != previousIndex)
         {

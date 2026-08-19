@@ -5,6 +5,7 @@
 #include "components/CenteredMessage.h"
 #include "components/Footer.h"
 #include "components/Header.h"
+#include "components/Selection.h"
 
 namespace
 {
@@ -12,29 +13,6 @@ namespace
     constexpr uint8_t BOOK_ACTION_COUNT = 3;
     constexpr const char* DELETE_OPTIONS[] = { "Cancel", "Delete" };
     constexpr uint8_t DELETE_OPTION_COUNT = 2;
-
-    bool moveSelection(
-        const InputState& input,
-        uint8_t& selectedIndex,
-        uint8_t optionCount
-    ) {
-        const uint8_t previousIndex = selectedIndex;
-        if (input.upPressed && !input.downPressed && selectedIndex > 0)
-        {
-            selectedIndex--;
-        }
-        else if (
-            input.downPressed && !input.upPressed &&
-            selectedIndex + 1 < optionCount
-        ) {
-            selectedIndex++;
-        }
-        else if (!input.upPressed && !input.downPressed)
-        {
-            return false;
-        }
-        return previousIndex != selectedIndex;
-    }
 
     void drawOptions(
         const char* heading,

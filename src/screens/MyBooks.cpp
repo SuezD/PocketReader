@@ -6,6 +6,7 @@
 #include "components/Footer.h"
 #include "components/Header.h"
 #include "components/SelectList.h"
+#include "components/Selection.h"
 #include "navigation/PageRegistry.h"
 
 namespace
@@ -69,17 +70,11 @@ bool MyBooksPage::handleInput(const InputState& input)
     {
         const uint8_t previousIndex = selectedEmptyOption;
 
-        if (input.upPressed && !input.downPressed && selectedEmptyOption > 0)
-        {
-            selectedEmptyOption--;
-        }
-        else if (
-            input.downPressed && !input.upPressed &&
-            selectedEmptyOption + 1 < MY_BOOKS_EMPTY_OPTION_COUNT
-        ) {
-            selectedEmptyOption++;
-        }
-        else
+        if (!moveSelection(
+            input,
+            selectedEmptyOption,
+            MY_BOOKS_EMPTY_OPTION_COUNT
+        ))
         {
             return input.upPressed || input.downPressed;
         }
