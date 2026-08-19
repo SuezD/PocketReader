@@ -30,6 +30,8 @@ private:
     void handleNetworks();
     void handleRescan();
     void handleStatus();
+    void handleBookServer();
+    void handleSaveBookServer();
     void handleNotFound();
     void startScan();
 };

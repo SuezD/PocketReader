@@ -48,14 +48,6 @@ const NavigationRequest MY_BOOKS_EMPTY_OPTIONS[] = {
 const uint8_t MY_BOOKS_EMPTY_OPTION_COUNT =
     sizeof(MY_BOOKS_EMPTY_OPTIONS) / sizeof(MY_BOOKS_EMPTY_OPTIONS[0]);
 
-const NavigationRequest ADD_BOOKS_OFFLINE_OPTIONS[] = {
-    navigateTo(PageId::WiFiSettings)
-};
-
-const uint8_t ADD_BOOKS_OFFLINE_OPTION_COUNT =
-    sizeof(ADD_BOOKS_OFFLINE_OPTIONS) /
-    sizeof(ADD_BOOKS_OFFLINE_OPTIONS[0]);
-
 const PageDefinition* findPage(PageId id)
 {
     for (const PageDefinition& page : PAGES)

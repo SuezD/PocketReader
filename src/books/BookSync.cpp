@@ -9,6 +9,7 @@
 #include <LittleFS.h>
 
 #include "books/BookServerConfig.h"
+#include "books/BookServerSettings.h"
 #include "wifi/WifiService.h"
 
 namespace
@@ -37,7 +38,8 @@ namespace
 BookSyncResult BookSync::fetchManifest()
 {
     clear();
-    if (DevelopmentBookServer::MANIFEST_URL[0] == '\0')
+    const char* configuredUrl = getBookServerSettings().getManifestUrl();
+    if (configuredUrl[0] == '\0')
     {
         return BookSyncResult::NotConfigured;
     }
@@ -46,9 +48,9 @@ BookSyncResult BookSync::fetchManifest()
         return BookSyncResult::NotConnected;
     }
 
-    const String manifestUrl = DevelopmentBookServer::MANIFEST_URL;
+    const String manifestUrl = configuredUrl;
     const bool usesTls = manifestUrl.startsWith("https://");
-    if (usesTls && DevelopmentBookServer::ROOT_CA[0] == '\0')
+    if (usesTls && BookServerConfig::ROOT_CA[0] == '\0')
     {
         return BookSyncResult::TlsConfigurationMissing;
     }
@@ -62,7 +64,7 @@ BookSyncResult BookSync::fetchManifest()
     WiFiClient* client = &plainClient;
     if (usesTls)
     {
-        secureClient.setCACert(DevelopmentBookServer::ROOT_CA);
+        secureClient.setCACert(BookServerConfig::ROOT_CA);
         client = &secureClient;
     }
 
@@ -122,7 +124,7 @@ BookDownloadResult BookSync::downloadBook(const RemoteBook& book)
         ? ""
         : book.downloadUrl;
     const bool usesTls = downloadUrl.startsWith("https://");
-    if (usesTls && DevelopmentBookServer::ROOT_CA[0] == '\0')
+    if (usesTls && BookServerConfig::ROOT_CA[0] == '\0')
     {
         return BookDownloadResult::TlsConfigurationMissing;
     }
@@ -136,7 +138,7 @@ BookDownloadResult BookSync::downloadBook(const RemoteBook& book)
     WiFiClient* client = &plainClient;
     if (usesTls)
     {
-        secureClient.setCACert(DevelopmentBookServer::ROOT_CA);
+        secureClient.setCACert(BookServerConfig::ROOT_CA);
         client = &secureClient;
     }
 

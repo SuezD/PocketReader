@@ -4,6 +4,7 @@
 #include "DisplayRefresh.h"
 #include "Input.h"
 #include "books/BookCache.h"
+#include "books/BookServerSettings.h"
 #include "navigation/PageRegistry.h"
 #include "screens/Startup.h"
 #include "components/Header.h"
@@ -36,6 +37,7 @@ namespace
     void performStartupTasks()
     {
         initBookCache();
+        getBookServerSettings().begin();
         initializeRegisteredPages();
         getWifiManager().begin();
         // Later: read battery level.

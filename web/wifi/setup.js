@@ -69,3 +69,34 @@ document.getElementById('scan').addEventListener('click', async () => {
 input.addEventListener('input', renderNetworks);
 loadNetworks();
 
+const bookServerForm = document.getElementById('book-server-form');
+const manifestUrl = document.getElementById('manifest-url');
+const bookServerStatus = document.getElementById('book-server-status');
+
+async function loadBookServer() {
+  try {
+    const response = await fetch('/book-server', { cache: 'no-store' });
+    const result = await response.json();
+    manifestUrl.value = result.manifestUrl || '';
+  } catch (error) {
+    bookServerStatus.textContent = 'Could not load the saved book server.';
+  }
+}
+
+bookServerForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  bookServerStatus.textContent = 'Saving...';
+
+  try {
+    const body = new URLSearchParams({ manifestUrl: manifestUrl.value });
+    const response = await fetch('/book-server', { method: 'POST', body });
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    bookServerStatus.textContent = 'Saved. Return to the reader.';
+  } catch (error) {
+    bookServerStatus.textContent = error.message || 'Could not save the book server.';
+  }
+});
+
+loadBookServer();

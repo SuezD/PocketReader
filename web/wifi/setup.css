@@ -5,6 +5,16 @@ body {
   padding: 0 1rem;
 }
 
+h2 {
+  margin-top: 2rem;
+}
+
+hr {
+  margin-top: 2.5rem;
+  border: 0;
+  border-top: 1px solid #bbb;
+}
+
 label,
 input,
 button {
@@ -35,6 +45,7 @@ button {
 }
 
 #scan-status,
+#book-server-status,
 .network small,
 .empty {
   color: #555;
@@ -82,4 +93,3 @@ button {
   text-decoration: none;
   text-align: center;
 }
-

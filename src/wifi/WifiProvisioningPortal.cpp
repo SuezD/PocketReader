@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 
+#include "books/BookServerSettings.h"
 #include "generated/WifiWebAssets.h"
 #include "wifi/WifiService.h"
 
@@ -80,6 +81,12 @@ bool WifiProvisioningPortal::start()
     server.on("/networks", HTTP_GET, [this]() { handleNetworks(); });
     server.on("/rescan", HTTP_POST, [this]() { handleRescan(); });
     server.on("/status", HTTP_GET, [this]() { handleStatus(); });
+    server.on("/book-server", HTTP_GET, [this]() {
+        handleBookServer();
+    });
+    server.on("/book-server", HTTP_POST, [this]() {
+        handleSaveBookServer();
+    });
     server.on("/generate_204", HTTP_ANY, [this]() { handleNotFound(); });
     server.on("/gen_204", HTTP_ANY, [this]() { handleNotFound(); });
     server.on("/hotspot-detect.html", HTTP_ANY, [this]() { handleNotFound(); });
@@ -261,6 +268,40 @@ void WifiProvisioningPortal::handleStatus()
 
     response += "\"}";
     server.send(200, "application/json", response);
+}
+
+void WifiProvisioningPortal::handleBookServer()
+{
+    String response = "{\"manifestUrl\":";
+    appendJsonString(
+        response,
+        getBookServerSettings().getManifestUrl()
+    );
+    response += '}';
+    server.send(200, "application/json", response);
+}
+
+void WifiProvisioningPortal::handleSaveBookServer()
+{
+    if (!server.hasArg("manifestUrl"))
+    {
+        server.send(400, "text/plain", "Manifest URL is required");
+        return;
+    }
+
+    const String manifestUrl = server.arg("manifestUrl");
+    if (!getBookServerSettings().setManifestUrl(manifestUrl.c_str()))
+    {
+        Serial.println(F("[BookServer] Rejected invalid manifest URL"));
+        server.send(
+            400,
+            "text/plain",
+            "Enter a valid http:// or https:// manifest URL"
+        );
+        return;
+    }
+
+    server.send(200, "application/json", "{\"saved\":true}");
 }
 
 void WifiProvisioningPortal::handleNotFound()

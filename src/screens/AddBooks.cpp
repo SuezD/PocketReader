@@ -7,6 +7,7 @@
 #include "Theme.h"
 #include "books/BookSync.h"
 #include "books/BookCache.h"
+#include "books/BookServerSettings.h"
 #include "components/CenteredMessage.h"
 #include "components/Footer.h"
 #include "components/Header.h"
@@ -15,6 +16,8 @@
 #include "components/Selection.h"
 #include "helpers/StorageText.h"
 #include "navigation/PageRegistry.h"
+#include "wifi/WifiProvisioningService.h"
+#include "wifi/WifiService.h"
 
 namespace
 {
@@ -22,8 +25,9 @@ namespace
         "Read", "Back to Catalogue", "Main Menu"
     };
     constexpr const char* CATALOGUE_BOTTOM_ACTIONS[] = {
-        "Refresh", "My Books", "Back"
+        "Refresh", "Configure Server", "Back"
     };
+    constexpr const char* SERVER_SETUP_OPTIONS[] = { "Back" };
 }
 
 AddBooksPage::AddBooksPage(ReaderPage& nextReaderPage)
@@ -33,9 +37,25 @@ AddBooksPage::AddBooksPage(ReaderPage& nextReaderPage)
 
 void AddBooksPage::onEnter()
 {
+    getWifiProvisioningPortal().stop();
     completedBookId = "";
     completedBookTitle = "";
     downloadStatus = "";
+
+    const uint32_t serverRevision = getBookServerSettings().getRevision();
+    if (
+        catalogueFetchAttempted &&
+        catalogueServerRevision != serverRevision
+    ) {
+        catalogueFetchAttempted = false;
+    }
+    if (
+        catalogueFetchAttempted &&
+        syncResult == BookSyncResult::NotConnected &&
+        getWifiManager().isConnected()
+    ) {
+        catalogueFetchAttempted = false;
+    }
 
     if (!catalogueFetchAttempted)
     {
@@ -48,6 +68,11 @@ void AddBooksPage::onEnter()
     state = syncResult == BookSyncResult::Success
         ? State::Catalogue
         : State::Error;
+}
+
+void AddBooksPage::onExit()
+{
+    getWifiProvisioningPortal().stop();
 }
 
 void AddBooksPage::draw(uint8_t nextBatteryPercent)
@@ -75,6 +100,10 @@ void AddBooksPage::draw(uint8_t nextBatteryPercent)
 bool AddBooksPage::handleInput(const InputState& input)
 {
     BookSync& sync = getBookSync();
+    if (state == State::ServerSetupInstructions)
+    {
+        return input.upPressed || input.downPressed;
+    }
     if (state == State::DownloadFailed)
     {
         FailureAction actions[MAX_FAILURE_OPTION_COUNT];
@@ -198,6 +227,27 @@ bool AddBooksPage::handleInput(const InputState& input)
 
 NavigationRequest AddBooksPage::select()
 {
+    if (state == State::ServerSetupInstructions)
+    {
+        getWifiProvisioningPortal().stop();
+        if (
+            getBookServerSettings().getRevision() !=
+            setupServerRevision ||
+            (
+                syncResult == BookSyncResult::NotConnected &&
+                getWifiManager().isConnected()
+            )
+        ) {
+            refresh();
+        }
+        else
+        {
+            state = stateBeforeServerSetup;
+            drawBody();
+        }
+        return noNavigation();
+    }
+
     if (state == State::DownloadFailed)
     {
         FailureAction actions[MAX_FAILURE_OPTION_COUNT];
@@ -278,7 +328,8 @@ NavigationRequest AddBooksPage::select()
         }
         if (listState.selectedIndex == bookCount + 1)
         {
-            return navigateTo(PageId::MyBooks);
+            openServerSetup();
+            return noNavigation();
         }
         if (listState.selectedIndex == bookCount + 2)
         {
@@ -304,9 +355,10 @@ NavigationRequest AddBooksPage::select()
             refresh();
             return noNavigation();
         case Action::WifiSettings:
-            return ADD_BOOKS_OFFLINE_OPTIONS[0];
-        case Action::MyBooks:
-            return navigateTo(PageId::MyBooks);
+            return navigateTo(PageId::WiFiSettings);
+        case Action::ConfigureServer:
+            openServerSetup();
+            return noNavigation();
         case Action::Back:
             return navigateBack();
     }
@@ -314,23 +366,49 @@ NavigationRequest AddBooksPage::select()
     return noNavigation();
 }
 
+bool AddBooksPage::handleConnectivityStateChange(
+    uint8_t nextBatteryPercent,
+    bool wifiStateChanged,
+    bool portalStateChanged
+) {
+    (void) portalStateChanged;
+    batteryPercent = nextBatteryPercent;
+    if (
+        wifiStateChanged &&
+        state == State::Error &&
+        syncResult == BookSyncResult::NotConnected &&
+        getWifiManager().isConnected()
+    ) {
+        refresh();
+    }
+
+    return false;
+}
+
 uint8_t AddBooksPage::getActions(
     Action* actions,
     const char** labels
 ) const {
     uint8_t count = 0;
-    if (syncResult == BookSyncResult::NotConnected)
+    if (syncResult == BookSyncResult::NotConfigured)
+    {
+        actions[count] = Action::ConfigureServer;
+        labels[count++] = "Configure Server";
+    }
+    else if (syncResult == BookSyncResult::NotConnected)
     {
         actions[count] = Action::WifiSettings;
         labels[count++] = getPageTitle(PageId::WiFiSettings);
+        actions[count] = Action::ConfigureServer;
+        labels[count++] = "Configure Server";
     }
     else
     {
         actions[count] = Action::Retry;
         labels[count++] = "Refresh";
+        actions[count] = Action::ConfigureServer;
+        labels[count++] = "Configure Server";
     }
-    actions[count] = Action::MyBooks;
-    labels[count++] = "My Books";
     actions[count] = Action::Back;
     labels[count++] = "Back";
     return count;
@@ -343,9 +421,37 @@ void AddBooksPage::refresh()
     fetchAndRenderResult();
 }
 
+void AddBooksPage::openServerSetup()
+{
+    stateBeforeServerSetup = state;
+    setupServerRevision = getBookServerSettings().getRevision();
+    if (!getWifiProvisioningPortal().start())
+    {
+        Serial.println(F("[BookServer] Could not start setup portal"));
+        return;
+    }
+
+    state = State::ServerSetupInstructions;
+    selectedActionIndex = 0;
+    drawBody();
+}
+
+String AddBooksPage::getServerSetupInstructions() const
+{
+    WifiManager& wifi = getWifiManager();
+    String instructions = "Connect to: ";
+    instructions += wifi.getSetupNetworkName();
+    instructions += "\nPassword: ";
+    instructions += wifi.getSetupNetworkPassword();
+    instructions += "\nOpen: ";
+    instructions += wifi.getSetupAddress();
+    return instructions;
+}
+
 void AddBooksPage::fetchAndRenderResult()
 {
     catalogueFetchAttempted = true;
+    catalogueServerRevision = getBookServerSettings().getRevision();
     downloadStatus = "";
     selectedActionIndex = 0;
     syncResult = getBookSync().fetchManifest();
@@ -380,6 +486,18 @@ void AddBooksPage::drawBody()
 
 void AddBooksPage::drawCurrentContent()
 {
+    if (state == State::ServerSetupInstructions)
+    {
+        const String instructions = getServerSetupInstructions();
+        drawMessage(
+            instructions.c_str(),
+            nullptr,
+            SERVER_SETUP_OPTIONS,
+            1,
+            0
+        );
+        return;
+    }
     if (state == State::Fetching)
     {
         drawMessage("Fetching book catalogue...");
