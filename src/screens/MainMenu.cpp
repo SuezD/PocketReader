@@ -1,6 +1,7 @@
 #include "screens/MainMenu.h"
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 #include "navigation/PageRegistry.h"
 
@@ -16,7 +17,7 @@ void MainMenuPage::draw(uint8_t batteryPercent)
         labels,
         MAIN_MENU_OPTION_COUNT
     );
-    display.setFullWindow();
+    setPageRefreshWindow();
     display.firstPage();
 
     do

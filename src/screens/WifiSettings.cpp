@@ -1,6 +1,7 @@
 #include "screens/WifiSettings.h"
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 #include "components/CenteredMessage.h"
 #include "components/Footer.h"
@@ -38,7 +39,7 @@ void WifiSettingsPage::draw(uint8_t nextBatteryPercent)
     const uint8_t itemCount = getItems(items);
     if (networkSelection >= itemCount) networkSelection = itemCount - 1;
 
-    display.setFullWindow();
+    setPageRefreshWindow();
     display.firstPage();
     do
     {

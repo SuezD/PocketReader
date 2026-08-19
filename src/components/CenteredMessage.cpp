@@ -1,6 +1,7 @@
 #include "CenteredMessage.h"
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 #include "helpers/TextUtils.h"
 
@@ -465,7 +466,7 @@ void redrawMessageSelection(
         (lastIndex - firstIndex) * optionStride +
         Theme::MESSAGE_OPTION_HEIGHT;
 
-    display.setPartialWindow(
+    setPartialRefreshWindow(
         layout.optionGroupX,
         updateTop,
         Theme::SELECT_LIST_MARKER_WIDTH,

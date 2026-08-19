@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 #include "components/CenteredMessage.h"
 #include "components/Footer.h"
@@ -39,7 +40,7 @@ void MyBooksPage::draw(uint8_t nextBatteryPercent)
 {
     batteryPercent = nextBatteryPercent;
 
-    display.setFullWindow();
+    setPageRefreshWindow();
     display.firstPage();
     do
     {

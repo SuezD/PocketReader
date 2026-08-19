@@ -1,6 +1,7 @@
 #include "screens/Startup.h"
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 #include "components/Header.h"
 #include "components/Footer.h"
@@ -39,7 +40,14 @@ namespace
 
 void drawStartupScreen(bool isReady)
 {
-    display.setFullWindow();
+    if (isReady)
+    {
+        setPageRefreshWindow();
+    }
+    else
+    {
+        setFullRefreshWindow();
+    }
     display.firstPage();
 
     do

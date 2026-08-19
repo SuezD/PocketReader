@@ -32,8 +32,7 @@ private:
     ReaderDocument currentDocument = {};
     uint16_t currentPage = 0;
     uint8_t selectedEmptyOption = 0;
-    bool readerNeedsFullRefresh = true;
-    uint8_t partialTurnsSinceFullRefresh = 0;
+    bool readerNeedsPageRefresh = true;
     uint8_t pageTurnsSinceProgressFlush = 0;
     TextPaginator paginator;
 

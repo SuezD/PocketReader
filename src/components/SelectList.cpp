@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 #include "helpers/TextUtils.h"
 #include "Selection.h"
@@ -343,7 +344,7 @@ void redrawSelectListAfterMove(
         const int listTop = getListTop();
         const int listBottom = display.height() - Theme::FOOTER_HEIGHT -
             Theme::SELECT_LIST_VERTICAL_PADDING;
-        display.setPartialWindow(
+        setPartialRefreshWindow(
             Theme::PAGE_MARGIN,
             listTop,
             display.width() - (Theme::PAGE_MARGIN * 2),
@@ -375,7 +376,7 @@ void redrawSelectListAfterMove(
     {
         const int listTop = getListTop();
         const int listHeight = getListBottom(config) - listTop;
-        display.setPartialWindow(contentLeft, listTop, contentWidth, listHeight);
+        setPartialRefreshWindow(contentLeft, listTop, contentWidth, listHeight);
         display.firstPage();
         do
         {
@@ -405,7 +406,7 @@ void redrawSelectListAfterMove(
     const int updateTop = min(previousTop, selectedTop);
     const int updateBottom = max(previousBottom, selectedBottom);
 
-    display.setPartialWindow(
+    setPartialRefreshWindow(
         contentLeft,
         updateTop,
         Theme::SELECT_LIST_MARKER_WIDTH,

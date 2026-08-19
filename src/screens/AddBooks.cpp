@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 #include "books/BookSync.h"
 #include "books/BookCache.h"
@@ -53,7 +54,7 @@ void AddBooksPage::draw(uint8_t nextBatteryPercent)
 {
     batteryPercent = nextBatteryPercent;
 
-    display.setFullWindow();
+    setPageRefreshWindow();
     display.firstPage();
     do
     {

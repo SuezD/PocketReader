@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 #include "components/CenteredMessage.h"
 #include "components/Footer.h"
@@ -18,7 +19,6 @@ namespace
     constexpr uint8_t READER_LINE_HEIGHT = 18;
     constexpr uint8_t READER_TEXT_BASELINE = 13;
     constexpr uint8_t MAX_LINE_LENGTH = 48;
-    constexpr uint8_t PARTIAL_TURNS_BEFORE_FULL_REFRESH = 12;
     constexpr uint8_t PAGE_TURNS_BEFORE_PROGRESS_FLUSH = 5;
 }
 
@@ -104,8 +104,7 @@ bool ReaderPage::open(
     currentBook = book;
     currentPage = 0;
     selectedEmptyOption = 0;
-    readerNeedsFullRefresh = true;
-    partialTurnsSinceFullRefresh = 0;
+    readerNeedsPageRefresh = true;
     pageTurnsSinceProgressFlush = 0;
 
     if (currentBook == nullptr || !currentDocument.open(*currentBook))
@@ -155,7 +154,7 @@ void ReaderPage::closeBook(const char* id)
     currentDocument.close();
     currentBook = nullptr;
     currentPage = 0;
-    readerNeedsFullRefresh = true;
+    readerNeedsPageRefresh = true;
 }
 
 bool ReaderPage::movePreviousPage()
@@ -264,7 +263,7 @@ void ReaderPage::onStartup()
 
 void ReaderPage::onEnter()
 {
-    readerNeedsFullRefresh = true;
+    readerNeedsPageRefresh = true;
 }
 
 void ReaderPage::onExit()
@@ -277,14 +276,12 @@ void ReaderPage::onExit()
 
 void ReaderPage::draw(uint8_t batteryPercent)
 {
-    const bool useFullRefresh =
-        readerNeedsFullRefresh ||
-        partialTurnsSinceFullRefresh >=
-            PARTIAL_TURNS_BEFORE_FULL_REFRESH;
+    const bool refreshWholePage =
+        readerNeedsPageRefresh || isFullRefreshDue();
 
-    if (useFullRefresh)
+    if (refreshWholePage)
     {
-        display.setFullWindow();
+        setPageRefreshWindow();
     }
     else
     {
@@ -295,7 +292,7 @@ void ReaderPage::draw(uint8_t batteryPercent)
 
     do
     {
-        if (useFullRefresh)
+        if (refreshWholePage)
         {
             display.fillScreen(Theme::BACKGROUND_COLOR);
         }
@@ -313,7 +310,7 @@ void ReaderPage::draw(uint8_t batteryPercent)
                 READER_EMPTY_OPTION_COUNT
             );
 
-            if (useFullRefresh)
+            if (refreshWholePage)
             {
                 drawHeader("READER", batteryPercent);
             }
@@ -329,7 +326,7 @@ void ReaderPage::draw(uint8_t batteryPercent)
             continue;
         }
 
-        if (useFullRefresh)
+        if (refreshWholePage)
         {
             drawHeader(currentBook->title, batteryPercent);
         }
@@ -350,13 +347,5 @@ void ReaderPage::draw(uint8_t batteryPercent)
     }
     while (display.nextPage());
 
-    if (useFullRefresh)
-    {
-        readerNeedsFullRefresh = false;
-        partialTurnsSinceFullRefresh = 0;
-    }
-    else
-    {
-        partialTurnsSinceFullRefresh++;
-    }
+    if (refreshWholePage) readerNeedsPageRefresh = false;
 }

@@ -1,6 +1,7 @@
 #include "CenteredOptionPage.h"
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 #include "CenteredMessage.h"
 #include "Footer.h"
@@ -16,7 +17,7 @@ void CenteredOptionPage::draw(
     uint8_t batteryPercent
 ) {
     selection = 0;
-    display.setFullWindow();
+    setPageRefreshWindow();
     display.firstPage();
     do
     {

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 #include "helpers/TextUtils.h"
 
@@ -123,7 +124,7 @@ void redrawFooter(const char* leftText, const char* rightText)
     const int footerTop =
         display.height() - Theme::FOOTER_HEIGHT;
 
-    display.setPartialWindow(
+    setPartialRefreshWindow(
         0,
         footerTop,
         display.width(),

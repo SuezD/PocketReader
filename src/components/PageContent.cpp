@@ -1,6 +1,7 @@
 #include "PageContent.h"
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 
 namespace
@@ -17,7 +18,7 @@ void setPageContentPartialWindow()
 
     // Include both dividers because the rotated e-paper driver may expand
     // partial windows to byte-aligned native display coordinates.
-    display.setPartialWindow(
+    setPartialRefreshWindow(
         0,
         Theme::HEADER_HEIGHT,
         display.width(),
@@ -55,7 +56,7 @@ void clearPageContent()
 
 void setPageBodyPartialWindow()
 {
-    display.setPartialWindow(
+    setPartialRefreshWindow(
         0,
         Theme::HEADER_HEIGHT,
         display.width(),

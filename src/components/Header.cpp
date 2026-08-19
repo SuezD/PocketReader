@@ -1,6 +1,7 @@
 #include "Header.h"
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Theme.h"
 #include "helpers/TextUtils.h"
 #include "wifi/WifiService.h"
@@ -132,7 +133,7 @@ void redrawHeaderStatus(uint8_t batteryPercent)
     const int updateLeft = statusLeft - (statusLeft % 8);
     const int updateWidth = display.width() - updateLeft;
 
-    display.setPartialWindow(
+    setPartialRefreshWindow(
         updateLeft,
         0,
         updateWidth,

@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "Display.h"
+#include "DisplayRefresh.h"
 #include "Input.h"
 #include "books/BookCache.h"
 #include "navigation/PageRegistry.h"
@@ -279,6 +280,12 @@ void loop()
         {
             redrawHeaderStatus(BATTERY_PERCENT);
         }
+    }
+
+    if (startupDismissed && isFullRefreshDue())
+    {
+        Serial.println(F("[Display] Running scheduled full refresh"));
+        drawCurrentPage();
     }
 
     const InputState input = readInput();
