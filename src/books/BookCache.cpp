@@ -36,6 +36,13 @@ namespace
 
     bool fileSystemReady = false;
 
+    enum class AtomicReplaceResult : uint8_t
+    {
+        Success,
+        BackupFailed,
+        ReplaceFailed
+    };
+
     bool littleFsFileExists(const char* path)
     {
         char mountedPath[96];
@@ -98,6 +105,45 @@ namespace
         return true;
     }
 
+    AtomicReplaceResult replaceFileAtomically(
+        const char* temporaryPath,
+        const char* destinationPath,
+        const char* backupPath
+    ) {
+        if (littleFsFileExists(backupPath))
+        {
+            LittleFS.remove(backupPath);
+        }
+
+        const bool hadDestination = littleFsFileExists(destinationPath);
+        if (
+            hadDestination &&
+            !LittleFS.rename(destinationPath, backupPath)
+        ) {
+            LittleFS.remove(temporaryPath);
+            return AtomicReplaceResult::BackupFailed;
+        }
+
+        if (!LittleFS.rename(temporaryPath, destinationPath))
+        {
+            if (hadDestination)
+            {
+                LittleFS.rename(backupPath, destinationPath);
+            }
+            if (littleFsFileExists(temporaryPath))
+            {
+                LittleFS.remove(temporaryPath);
+            }
+            return AtomicReplaceResult::ReplaceFailed;
+        }
+
+        if (littleFsFileExists(backupPath))
+        {
+            LittleFS.remove(backupPath);
+        }
+        return AtomicReplaceResult::Success;
+    }
+
     bool writeBookManifest()
     {
         if (littleFsFileExists(BOOK_MANIFEST_TEMP_PATH))
@@ -117,38 +163,11 @@ namespace
         }
         manifest.close();
 
-        if (littleFsFileExists(BOOK_MANIFEST_BACKUP_PATH))
-        {
-            LittleFS.remove(BOOK_MANIFEST_BACKUP_PATH);
-        }
-        const bool hadManifest = littleFsFileExists(BOOK_MANIFEST_PATH);
-        if (
-            hadManifest &&
-            !LittleFS.rename(BOOK_MANIFEST_PATH, BOOK_MANIFEST_BACKUP_PATH)
-        ) {
-            LittleFS.remove(BOOK_MANIFEST_TEMP_PATH);
-            return false;
-        }
-        if (!LittleFS.rename(BOOK_MANIFEST_TEMP_PATH, BOOK_MANIFEST_PATH))
-        {
-            if (hadManifest)
-            {
-                LittleFS.rename(
-                    BOOK_MANIFEST_BACKUP_PATH,
-                    BOOK_MANIFEST_PATH
-                );
-            }
-            if (littleFsFileExists(BOOK_MANIFEST_TEMP_PATH))
-            {
-                LittleFS.remove(BOOK_MANIFEST_TEMP_PATH);
-            }
-            return false;
-        }
-        if (littleFsFileExists(BOOK_MANIFEST_BACKUP_PATH))
-        {
-            LittleFS.remove(BOOK_MANIFEST_BACKUP_PATH);
-        }
-        return true;
+        return replaceFileAtomically(
+            BOOK_MANIFEST_TEMP_PATH,
+            BOOK_MANIFEST_PATH,
+            BOOK_MANIFEST_BACKUP_PATH
+        ) == AtomicReplaceResult::Success;
     }
 
     void removeLastBookRecord()
@@ -463,43 +482,20 @@ namespace
 
         progressFile.close();
 
-        if (littleFsFileExists(READING_PROGRESS_BACKUP_PATH))
-        {
-            LittleFS.remove(READING_PROGRESS_BACKUP_PATH);
-        }
-
-        if (
-            littleFsFileExists(READING_PROGRESS_PATH) &&
-            !LittleFS.rename(
-                READING_PROGRESS_PATH,
-                READING_PROGRESS_BACKUP_PATH
-            )
-        ) {
-            if (littleFsFileExists(READING_PROGRESS_TEMP_PATH))
-            {
-                LittleFS.remove(READING_PROGRESS_TEMP_PATH);
-            }
-            Serial.println(F("Could not back up reading progress"));
-            return false;
-        }
-
-        if (!LittleFS.rename(
+        const AtomicReplaceResult replaceResult = replaceFileAtomically(
             READING_PROGRESS_TEMP_PATH,
-            READING_PROGRESS_PATH
-        )) {
-            LittleFS.rename(
-                READING_PROGRESS_BACKUP_PATH,
-                READING_PROGRESS_PATH
-            );
-            Serial.println(F("Could not replace reading progress"));
-            return false;
-        }
-
-        if (littleFsFileExists(READING_PROGRESS_BACKUP_PATH))
+            READING_PROGRESS_PATH,
+            READING_PROGRESS_BACKUP_PATH
+        );
+        if (replaceResult == AtomicReplaceResult::BackupFailed)
         {
-            LittleFS.remove(READING_PROGRESS_BACKUP_PATH);
+            Serial.println(F("Could not back up reading progress"));
         }
-        return true;
+        else if (replaceResult == AtomicReplaceResult::ReplaceFailed)
+        {
+            Serial.println(F("Could not replace reading progress"));
+        }
+        return replaceResult == AtomicReplaceResult::Success;
     }
 }
 
