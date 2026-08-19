@@ -25,7 +25,6 @@ public:
 
     WifiState getState() const;
     bool isConnected() const;
-    bool hasSavedNetwork() const;
     uint8_t getSavedNetworkCount() const;
     const char* getSavedNetworkName(uint8_t index) const;
     bool isSetupAccessPointActive() const;
@@ -38,6 +37,8 @@ private:
     static constexpr uint8_t MAX_SAVED_NETWORKS = 5;
     static constexpr unsigned long CONNECTION_TIMEOUT_MS = 15000;
     static constexpr unsigned long CONNECTION_RESET_MS = 500;
+    static constexpr unsigned long CONNECTION_STATUS_GRACE_MS = 1500;
+    static constexpr uint32_t SCAN_MAX_MS_PER_CHANNEL = 600;
     WifiState state = WifiState::Disconnected;
     Preferences preferences;
     String networkName;
@@ -53,7 +54,6 @@ private:
     bool startupSelectionActive = false;
     bool connectionResetPending = false;
     bool preferencesReady = false;
-    bool savedNetworkAvailable = false;
     bool saveAfterConnection = false;
     bool setupAccessPointActive = false;
     bool savedNetworkScanActive = false;
@@ -64,6 +64,8 @@ private:
     void beginSavedNetworkScan();
     bool updateSavedNetworkScan();
     void collectVisibleSavedNetworks(int scanResultCount);
+    void collectAllSavedNetworks();
+    bool startSavedNetworkFallback();
     bool startNextVisibleSavedNetwork();
     void saveNetwork();
     void loadSavedNetworks();

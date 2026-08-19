@@ -155,6 +155,7 @@ void WifiProvisioningPortal::handleConnect()
 {
     if (!server.hasArg("ssid"))
     {
+        Serial.println(F("[WiFi portal] Rejected connect request without SSID"));
         server.send(400, "text/plain", "Network name is required");
         return;
     }
@@ -164,10 +165,23 @@ void WifiProvisioningPortal::handleConnect()
 
     if (ssid.length() == 0 || ssid.length() > 32 || password.length() > 63)
     {
+        Serial.print(F("[WiFi portal] Rejected invalid credentials: SSID length "));
+        Serial.print(ssid.length());
+        Serial.print(F(", password length "));
+        Serial.println(password.length());
         server.send(400, "text/plain", "Invalid network details");
         return;
     }
 
+    Serial.print(F("[WiFi portal] Connect submitted by "));
+    Serial.print(server.client().remoteIP());
+    Serial.print(F(" for SSID '"));
+    Serial.print(ssid);
+    Serial.print(F("' (password characters: "));
+    Serial.print(password.length());
+    Serial.print(F(", scan state: "));
+    Serial.print(WiFi.scanComplete());
+    Serial.println(')');
     connectionSubmitted = true;
     connectedAt = 0;
     getWifiManager().connect(ssid.c_str(), password.c_str());
@@ -218,6 +232,7 @@ void WifiProvisioningPortal::handleNetworks()
 
 void WifiProvisioningPortal::handleRescan()
 {
+    Serial.println(F("[WiFi portal] Browser requested network rescan"));
     WiFi.scanDelete();
     scanStarted = false;
     startScan();
@@ -265,6 +280,8 @@ void WifiProvisioningPortal::startScan()
     }
 
     const int result = WiFi.scanNetworks(true, false);
+    Serial.print(F("[WiFi portal] scanNetworks returned "));
+    Serial.println(result);
     scanStarted = result == WIFI_SCAN_RUNNING || result >= 0;
 
     if (!scanStarted)

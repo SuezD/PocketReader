@@ -6,7 +6,6 @@
 #include "navigation/PageRegistry.h"
 #include "screens/Startup.h"
 #include "components/Header.h"
-#include "wifi/DevelopmentWifiConfig.h"
 #include "wifi/WifiService.h"
 #include "wifi/WifiProvisioningService.h"
 
@@ -38,17 +37,6 @@ namespace
         initBookCache();
         initializeRegisteredPages();
         getWifiManager().begin();
-
-        if (!getWifiManager().hasSavedNetwork())
-        {
-            if (DevelopmentWifi::SSID[0] != '\0')
-            {
-                getWifiManager().connect(
-                    DevelopmentWifi::SSID,
-                    DevelopmentWifi::PASSWORD
-                );
-            }
-        }
         // Later: read battery level.
         startupReady = true;
     }

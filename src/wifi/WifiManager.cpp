@@ -23,12 +23,78 @@ namespace
 
         return F("unknown");
     }
+
+    const __FlashStringHelper* getWifiStatusName(wl_status_t status)
+    {
+        switch (status)
+        {
+            case WL_IDLE_STATUS: return F("idle");
+            case WL_NO_SSID_AVAIL: return F("no SSID available");
+            case WL_SCAN_COMPLETED: return F("scan completed");
+            case WL_CONNECTED: return F("connected");
+            case WL_CONNECT_FAILED: return F("connect failed");
+            case WL_CONNECTION_LOST: return F("connection lost");
+            case WL_DISCONNECTED: return F("disconnected");
+            default: return F("unknown");
+        }
+    }
+
+    const __FlashStringHelper* getDisconnectReasonName(uint8_t reason)
+    {
+        switch (reason)
+        {
+            case WIFI_REASON_AUTH_EXPIRE: return F("authentication expired");
+            case WIFI_REASON_AUTH_LEAVE: return F("authentication left");
+            case WIFI_REASON_ASSOC_EXPIRE: return F("association expired");
+            case WIFI_REASON_ASSOC_LEAVE: return F("association left");
+            case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:
+                return F("4-way handshake timeout");
+            case WIFI_REASON_802_1X_AUTH_FAILED:
+                return F("802.1X authentication failed");
+            case WIFI_REASON_STA_LEAVING: return F("station leaving");
+            case WIFI_REASON_BEACON_TIMEOUT: return F("beacon timeout");
+            case WIFI_REASON_NO_AP_FOUND: return F("access point not found");
+            case WIFI_REASON_AUTH_FAIL: return F("authentication failed");
+            case WIFI_REASON_ASSOC_FAIL: return F("association failed");
+            case WIFI_REASON_HANDSHAKE_TIMEOUT: return F("handshake timeout");
+            case WIFI_REASON_CONNECTION_FAIL: return F("connection failed");
+            default: return F("other");
+        }
+    }
+
+    void logWifiStatus(const __FlashStringHelper* prefix, wl_status_t status)
+    {
+        Serial.print(prefix);
+        Serial.print(getWifiStatusName(status));
+        Serial.print(F(" ("));
+        Serial.print(static_cast<int>(status));
+        Serial.println(')');
+    }
 }
 
 void WifiManager::begin()
 {
+    Serial.println(F("[WiFi] Initialising station"));
+    WiFi.onEvent(
+        [this](arduino_event_id_t, arduino_event_info_t info)
+        {
+            const uint8_t reason = info.wifi_sta_disconnected.reason;
+            Serial.print(F("[WiFi] STA disconnected from '"));
+            Serial.print(networkName);
+            Serial.print(F("': "));
+            Serial.print(getDisconnectReasonName(reason));
+            Serial.print(F(" (reason "));
+            Serial.print(reason);
+            Serial.print(F(", app state "));
+            Serial.print(getStateName(state));
+            Serial.println(')');
+        },
+        ARDUINO_EVENT_WIFI_STA_DISCONNECTED
+    );
     WiFi.persistent(false);
     WiFi.mode(WIFI_STA);
+    Serial.print(F("[WiFi] Device MAC: "));
+    Serial.println(WiFi.macAddress());
     setState(WifiState::Disconnected);
 
     preferencesReady = preferences.begin("pocket-wifi", false);
@@ -40,11 +106,18 @@ void WifiManager::begin()
     }
 
     loadSavedNetworks();
-    savedNetworkAvailable = savedNetworkCount > 0;
     Serial.print(F("Saved Wi-Fi networks: "));
     Serial.println(savedNetworkCount);
+    for (uint8_t index = 0; index < savedNetworkCount; index++)
+    {
+        Serial.print(F("[WiFi] Saved priority "));
+        Serial.print(index + 1);
+        Serial.print(F(": '"));
+        Serial.print(savedNetworkNames[index]);
+        Serial.println('\'');
+    }
 
-    if (savedNetworkAvailable)
+    if (savedNetworkCount > 0)
     {
         networkName = savedNetworkNames[0];
         networkPassword = savedNetworkPasswords[0];
@@ -66,6 +139,11 @@ void WifiManager::connect(const char* ssid, const char* password)
 
     networkName = ssid;
     networkPassword = password == nullptr ? "" : password;
+    Serial.print(F("[WiFi] Provisioning requested connection to '"));
+    Serial.print(networkName);
+    Serial.print(F("' (password characters: "));
+    Serial.print(networkPassword.length());
+    Serial.println(')');
     if (savedNetworkScanPending)
     {
         savedNetworkScanPending = false;
@@ -107,11 +185,17 @@ bool WifiManager::connectSavedNetwork(const char* ssid)
     const int index = findSavedNetwork(String(ssid));
     if (index < 0)
     {
+        Serial.print(F("[WiFi] Requested saved SSID was not found: '"));
+        Serial.print(ssid);
+        Serial.println('\'');
         return false;
     }
 
     networkName = savedNetworkNames[index];
     networkPassword = savedNetworkPasswords[index];
+    Serial.print(F("[WiFi] User requested saved network '"));
+    Serial.print(networkName);
+    Serial.println('\'');
     startupSelectionActive = false;
     saveAfterConnection = false;
     WiFi.disconnect(false, false);
@@ -148,8 +232,10 @@ bool WifiManager::forgetSavedNetwork(const char* ssid)
     savedNetworkCount--;
     savedNetworkNames[savedNetworkCount] = "";
     savedNetworkPasswords[savedNetworkCount] = "";
-    savedNetworkAvailable = savedNetworkCount > 0;
     persistSavedNetworks();
+
+    Serial.print(F("Forgot Wi-Fi network: "));
+    Serial.println(ssid);
 
     if (forgetsCurrentNetwork)
     {
@@ -158,8 +244,6 @@ bool WifiManager::forgetSavedNetwork(const char* ssid)
         networkPassword = "";
     }
 
-    Serial.print(F("Forgot Wi-Fi network: "));
-    Serial.println(ssid);
     return true;
 }
 
@@ -271,12 +355,26 @@ void WifiManager::update()
 
     if (state == WifiState::Connecting)
     {
+        const unsigned long elapsed = now - connectionStartedAt;
         const bool rejected =
-            wifiStatus == WL_CONNECT_FAILED ||
-            wifiStatus == WL_NO_SSID_AVAIL;
+            elapsed >= CONNECTION_STATUS_GRACE_MS &&
+            (
+                wifiStatus == WL_CONNECT_FAILED ||
+                wifiStatus == WL_NO_SSID_AVAIL
+            );
 
-        if (rejected || now - connectionStartedAt >= CONNECTION_TIMEOUT_MS)
+        if (rejected || elapsed >= CONNECTION_TIMEOUT_MS)
         {
+            Serial.print(F("[WiFi] Connection attempt to '"));
+            Serial.print(networkName);
+            Serial.print(F("' failed after "));
+            Serial.print(elapsed);
+            Serial.println(F(" ms"));
+            logWifiStatus(F("[WiFi] Final Arduino status: "), wifiStatus);
+            if (!rejected)
+            {
+                Serial.println(F("[WiFi] Failure cause: application timeout"));
+            }
             WiFi.disconnect(false, false);
 
             if (startupSelectionActive && startNextVisibleSavedNetwork())
@@ -302,11 +400,6 @@ WifiState WifiManager::getState() const
 bool WifiManager::isConnected() const
 {
     return state == WifiState::Connected;
-}
-
-bool WifiManager::hasSavedNetwork() const
-{
-    return savedNetworkAvailable;
 }
 
 uint8_t WifiManager::getSavedNetworkCount() const
@@ -348,8 +441,18 @@ String WifiManager::getSetupAddress() const
 
 void WifiManager::startConnection()
 {
-    WiFi.mode(setupAccessPointActive ? WIFI_AP_STA : WIFI_STA);
-    WiFi.begin(networkName.c_str(), networkPassword.c_str());
+    const wifi_mode_t mode =
+        setupAccessPointActive ? WIFI_AP_STA : WIFI_STA;
+    WiFi.mode(mode);
+    Serial.print(F("[WiFi] Starting connection to '"));
+    Serial.print(networkName);
+    Serial.print(F("' using mode "));
+    Serial.print(mode == WIFI_AP_STA ? F("AP+STA") : F("STA"));
+    Serial.print(F("; password characters: "));
+    Serial.println(networkPassword.length());
+    const wl_status_t beginStatus =
+        WiFi.begin(networkName.c_str(), networkPassword.c_str());
+    logWifiStatus(F("[WiFi] WiFi.begin status: "), beginStatus);
     connectionStartedAt = millis();
     retryAt = 0;
     setState(WifiState::Connecting);
@@ -367,6 +470,7 @@ void WifiManager::startSavedNetworkScan()
     }
 
     WiFi.disconnect(false, false);
+    Serial.println(F("[WiFi] Preparing one startup saved-network scan"));
     savedNetworkScanPending = true;
     retryAt = millis() + CONNECTION_RESET_MS;
     setState(WifiState::Connecting);
@@ -378,7 +482,14 @@ void WifiManager::beginSavedNetworkScan()
     visibleSavedNetworkCount = 0;
     nextVisibleSavedNetwork = 0;
     WiFi.scanDelete();
-    const int result = WiFi.scanNetworks(true, false);
+    const int result = WiFi.scanNetworks(
+        true,
+        false,
+        false,
+        SCAN_MAX_MS_PER_CHANNEL
+    );
+    Serial.print(F("[WiFi] scanNetworks returned "));
+    Serial.println(result);
 
     if (result == WIFI_SCAN_RUNNING || result >= 0)
     {
@@ -389,10 +500,13 @@ void WifiManager::beginSavedNetworkScan()
     }
     else
     {
-        retryAt = 0;
-        startupSelectionActive = false;
-        setState(WifiState::Failed);
-        Serial.println(F("Could not start saved-network scan"));
+        Serial.println(F("[WiFi] Saved-network scan could not start"));
+        if (!startSavedNetworkFallback())
+        {
+            retryAt = 0;
+            startupSelectionActive = false;
+            setState(WifiState::Failed);
+        }
     }
 }
 
@@ -406,6 +520,21 @@ bool WifiManager::updateSavedNetworkScan()
     }
 
     savedNetworkScanActive = false;
+    Serial.print(F("[WiFi] Saved-network scan completed with result "));
+    Serial.println(result);
+    if (result == WIFI_SCAN_FAILED)
+    {
+        WiFi.scanDelete();
+        Serial.println(F("[WiFi] Saved-network scan failed or timed out"));
+        if (!startSavedNetworkFallback())
+        {
+            retryAt = 0;
+            startupSelectionActive = false;
+            setState(WifiState::Failed);
+        }
+        return true;
+    }
+
     if (result >= 0)
     {
         collectVisibleSavedNetworks(result);
@@ -417,11 +546,34 @@ bool WifiManager::updateSavedNetworkScan()
         retryAt = 0;
         startupSelectionActive = false;
         setState(WifiState::Failed);
-        Serial.println(F("No saved Wi-Fi networks are currently available"));
+        Serial.println(F("[WiFi] Scan succeeded, but no saved networks were visible"));
         return true;
     }
 
     return true;
+}
+
+void WifiManager::collectAllSavedNetworks()
+{
+    visibleSavedNetworkCount = savedNetworkCount;
+    nextVisibleSavedNetwork = 0;
+    for (uint8_t index = 0; index < savedNetworkCount; index++)
+    {
+        visibleSavedNetworkIndices[index] = index;
+    }
+}
+
+bool WifiManager::startSavedNetworkFallback()
+{
+    Serial.println(F("[WiFi] Falling back to direct saved-network attempts"));
+    collectAllSavedNetworks();
+    if (startNextVisibleSavedNetwork())
+    {
+        return true;
+    }
+
+    Serial.println(F("[WiFi] No saved networks are available for fallback"));
+    return false;
 }
 
 void WifiManager::collectVisibleSavedNetworks(int scanResultCount)
@@ -435,12 +587,23 @@ void WifiManager::collectVisibleSavedNetworks(int scanResultCount)
         {
             if (savedNetworkNames[savedIndex] == WiFi.SSID(scanIndex))
             {
+                Serial.print(F("[WiFi] Matched saved priority "));
+                Serial.print(savedIndex + 1);
+                Serial.print(F(": '"));
+                Serial.print(savedNetworkNames[savedIndex]);
+                Serial.print(F("', RSSI "));
+                Serial.print(WiFi.RSSI(scanIndex));
+                Serial.print(F(" dBm, channel "));
+                Serial.println(WiFi.channel(scanIndex));
                 visibleSavedNetworkIndices[visibleSavedNetworkCount++] =
                     savedIndex;
                 break;
             }
         }
     }
+
+    Serial.print(F("[WiFi] Visible saved candidates: "));
+    Serial.println(visibleSavedNetworkCount);
 }
 
 bool WifiManager::startNextVisibleSavedNetwork()
@@ -457,7 +620,14 @@ bool WifiManager::startNextVisibleSavedNetwork()
     saveAfterConnection = false;
     Serial.print(F("Trying saved Wi-Fi network: "));
     Serial.println(networkName);
-    startConnection();
+    Serial.print(F("[WiFi] Candidate "));
+    Serial.print(nextVisibleSavedNetwork);
+    Serial.print(F(" of "));
+    Serial.println(visibleSavedNetworkCount);
+    Serial.println(F("[WiFi] Resetting station before candidate attempt"));
+    WiFi.disconnect(false, false);
+    retryAt = millis() + CONNECTION_RESET_MS;
+    connectionResetPending = true;
     return true;
 }
 
@@ -473,7 +643,6 @@ void WifiManager::saveNetwork()
 
     makeSavedNetworkPreferred(networkName, networkPassword);
     persistSavedNetworks();
-    savedNetworkAvailable = true;
     Serial.print(F("Saved Wi-Fi network: "));
     Serial.println(networkName);
 }
@@ -517,8 +686,8 @@ void WifiManager::loadSavedNetworks()
     savedNetworkPasswords[0] = preferences.getString("password", "");
     savedNetworkCount = 1;
     persistSavedNetworks();
-    preferences.remove("ssid");
-    preferences.remove("password");
+    if (preferences.isKey("ssid")) preferences.remove("ssid");
+    if (preferences.isKey("password")) preferences.remove("password");
     Serial.println(F("Migrated saved Wi-Fi network storage"));
 }
 
@@ -547,8 +716,8 @@ void WifiManager::persistSavedNetworks()
         }
         else
         {
-            preferences.remove(ssidKey);
-            preferences.remove(passwordKey);
+            if (preferences.isKey(ssidKey)) preferences.remove(ssidKey);
+            if (preferences.isKey(passwordKey)) preferences.remove(passwordKey);
         }
     }
 }
@@ -609,5 +778,13 @@ void WifiManager::setState(WifiState nextState)
         Serial.println(networkName);
         Serial.print(F("Wi-Fi address: "));
         Serial.println(WiFi.localIP());
+        Serial.print(F("[WiFi] Signal: "));
+        Serial.print(WiFi.RSSI());
+        Serial.print(F(" dBm, channel "));
+        Serial.println(WiFi.channel());
+        Serial.print(F("[WiFi] Gateway: "));
+        Serial.println(WiFi.gatewayIP());
+        Serial.print(F("[WiFi] DNS: "));
+        Serial.println(WiFi.dnsIP());
     }
 }

@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include <LittleFS.h>
 
@@ -31,6 +32,25 @@ namespace
     bool progressDirty = false;
 
     bool fileSystemReady = false;
+
+    bool littleFsFileExists(const char* path)
+    {
+        char mountedPath[96];
+        const int length = snprintf(
+            mountedPath,
+            sizeof(mountedPath),
+            "/littlefs%s",
+            path
+        );
+        if (length < 0 || static_cast<size_t>(length) >= sizeof(mountedPath))
+        {
+            return false;
+        }
+
+        struct stat fileStatus;
+        return stat(mountedPath, &fileStatus) == 0;
+    }
+
     bool copyManifestField(
         char* destination,
         size_t destinationSize,
@@ -165,13 +185,19 @@ namespace
         currentBookIndex = -1;
 
         if (
-            !LittleFS.exists(READING_PROGRESS_PATH) &&
-            LittleFS.exists(READING_PROGRESS_BACKUP_PATH)
+            !littleFsFileExists(READING_PROGRESS_PATH) &&
+            littleFsFileExists(READING_PROGRESS_BACKUP_PATH)
         ) {
             LittleFS.rename(
                 READING_PROGRESS_BACKUP_PATH,
                 READING_PROGRESS_PATH
             );
+        }
+
+        if (!littleFsFileExists(READING_PROGRESS_PATH))
+        {
+            progressDirty = false;
+            return;
         }
 
         File progressFile = LittleFS.open(READING_PROGRESS_PATH, "r");
@@ -248,7 +274,7 @@ namespace
             return false;
         }
 
-        if (LittleFS.exists(READING_PROGRESS_TEMP_PATH))
+        if (littleFsFileExists(READING_PROGRESS_TEMP_PATH))
         {
             LittleFS.remove(READING_PROGRESS_TEMP_PATH);
         }
@@ -279,19 +305,19 @@ namespace
 
         progressFile.close();
 
-        if (LittleFS.exists(READING_PROGRESS_BACKUP_PATH))
+        if (littleFsFileExists(READING_PROGRESS_BACKUP_PATH))
         {
             LittleFS.remove(READING_PROGRESS_BACKUP_PATH);
         }
 
         if (
-            LittleFS.exists(READING_PROGRESS_PATH) &&
+            littleFsFileExists(READING_PROGRESS_PATH) &&
             !LittleFS.rename(
                 READING_PROGRESS_PATH,
                 READING_PROGRESS_BACKUP_PATH
             )
         ) {
-            if (LittleFS.exists(READING_PROGRESS_TEMP_PATH))
+            if (littleFsFileExists(READING_PROGRESS_TEMP_PATH))
             {
                 LittleFS.remove(READING_PROGRESS_TEMP_PATH);
             }
@@ -311,7 +337,7 @@ namespace
             return false;
         }
 
-        if (LittleFS.exists(READING_PROGRESS_BACKUP_PATH))
+        if (littleFsFileExists(READING_PROGRESS_BACKUP_PATH))
         {
             LittleFS.remove(READING_PROGRESS_BACKUP_PATH);
         }
