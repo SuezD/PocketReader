@@ -19,10 +19,10 @@ namespace
     {
         int bottom = display.height() - Theme::FOOTER_HEIGHT -
             Theme::SELECT_LIST_VERTICAL_PADDING;
-        if (config.hasBottomAction)
+        if (config.bottomActionCount > 0)
         {
-            bottom -= Theme::SELECT_LIST_ITEM_HEIGHT +
-                Theme::SELECT_LIST_ITEM_GAP;
+            bottom -= config.bottomActionCount *
+                (Theme::SELECT_LIST_ITEM_HEIGHT + Theme::SELECT_LIST_ITEM_GAP);
         }
         return bottom;
     }
@@ -218,11 +218,11 @@ void drawSelectList(
     uint8_t itemCount,
     SelectListState& state,
     SelectListConfig config,
-    const char* bottomAction
+    const char* const bottomActions[]
 ) {
     if (items == nullptr || itemCount == 0) return;
     const bool bottomSelected =
-        config.hasBottomAction && state.selectedIndex == itemCount;
+        config.bottomActionCount > 0 && state.selectedIndex >= itemCount;
     if (bottomSelected)
     {
         SelectListState visibleState = state;
@@ -295,25 +295,33 @@ void drawSelectList(
         rowTop += itemHeight + Theme::SELECT_LIST_ITEM_GAP;
     }
 
-    if (config.hasBottomAction && bottomAction != nullptr)
+    if (config.bottomActionCount > 0 && bottomActions != nullptr)
     {
-        const int actionTop = getListBottom(config) +
-            Theme::SELECT_LIST_ITEM_GAP;
-        if (bottomSelected)
+        int actionTop = getListBottom(config) + Theme::SELECT_LIST_ITEM_GAP;
+        for (
+            uint8_t actionIndex = 0;
+            actionIndex < config.bottomActionCount;
+            actionIndex++
+        )
         {
-            display.fillRect(
-                contentLeft,
-                actionTop,
-                Theme::SELECT_LIST_MARKER_WIDTH,
-                Theme::SELECT_LIST_ITEM_HEIGHT,
-                Theme::TEXT_COLOR
+            if (state.selectedIndex == itemCount + actionIndex)
+            {
+                display.fillRect(
+                    contentLeft,
+                    actionTop,
+                    Theme::SELECT_LIST_MARKER_WIDTH,
+                    Theme::SELECT_LIST_ITEM_HEIGHT,
+                    Theme::TEXT_COLOR
+                );
+            }
+            display.setCursor(
+                textX,
+                actionTop + Theme::SELECT_LIST_TEXT_BASELINE
             );
+            display.print(bottomActions[actionIndex]);
+            actionTop += Theme::SELECT_LIST_ITEM_HEIGHT +
+                Theme::SELECT_LIST_ITEM_GAP;
         }
-        display.setCursor(
-            textX,
-            actionTop + Theme::SELECT_LIST_TEXT_BASELINE
-        );
-        display.print(bottomAction);
     }
 }
 
@@ -323,7 +331,7 @@ void redrawSelectListAfterMove(
     const SelectListState& previousState,
     SelectListState& state,
     SelectListConfig config,
-    const char* bottomAction
+    const char* const bottomActions[]
 ) {
     if (
         items == nullptr || itemCount == 0 ||
@@ -332,7 +340,7 @@ void redrawSelectListAfterMove(
         return;
     }
 
-    if (config.hasBottomAction)
+    if (config.bottomActionCount > 0)
     {
         const int listTop = getListTop();
         const int listBottom = display.height() - Theme::FOOTER_HEIGHT -
@@ -354,7 +362,7 @@ void redrawSelectListAfterMove(
                 Theme::BACKGROUND_COLOR
             );
             drawSelectList(
-                items, itemCount, state, config, bottomAction
+                items, itemCount, state, config, bottomActions
             );
         }
         while (display.nextPage());

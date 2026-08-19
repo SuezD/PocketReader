@@ -8,6 +8,11 @@
 #include "components/SelectList.h"
 #include "navigation/PageRegistry.h"
 
+namespace
+{
+    constexpr const char* MY_BOOKS_BOTTOM_ACTIONS[] = { "Back" };
+}
+
 MyBooksPage::MyBooksPage(SelectedCachedBook& nextSelectedBook)
     : selectedBook(nextSelectedBook)
 {
@@ -49,7 +54,7 @@ void MyBooksPage::draw(uint8_t batteryPercent)
                 itemCount,
                 listState,
                 TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION,
-                "Back"
+                MY_BOOKS_BOTTOM_ACTIONS
             );
         }
 
@@ -119,7 +124,7 @@ bool MyBooksPage::handleInput(const InputState& input)
         previousState,
         listState,
         TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION,
-        "Back"
+        MY_BOOKS_BOTTOM_ACTIONS
     );
 
     return true;

@@ -16,6 +16,9 @@ namespace
     constexpr const char* DOWNLOAD_COMPLETE_OPTIONS[] = {
         "Read", "Back to Catalogue", "Main Menu"
     };
+    constexpr const char* CATALOGUE_BOTTOM_ACTIONS[] = {
+        "Refresh", "Back"
+    };
 }
 
 AddBooksPage::AddBooksPage(ReaderPage& nextReaderPage)
@@ -81,20 +84,21 @@ bool AddBooksPage::handleInput(const InputState& input)
         syncResult == BookSyncResult::Success &&
         sync.getBookCount() > 0
     ) {
-        const uint8_t itemCount = sync.getBookCount() + 1;
+        const uint8_t catalogueItemCount = sync.getBookCount();
+        const uint8_t selectableItemCount = catalogueItemCount + 2;
         const SelectListState previousState = listState;
         if (input.upPressed && !input.downPressed)
         {
             moveSelectListUp(
                 listState,
-                itemCount
+                selectableItemCount
             );
         }
         else if (input.downPressed && !input.upPressed)
         {
             moveSelectListDown(
                 listState,
-                itemCount
+                selectableItemCount
             );
         }
         else
@@ -106,11 +110,11 @@ bool AddBooksPage::handleInput(const InputState& input)
         getBookTitles(titles);
         redrawSelectListAfterMove(
             titles,
-            sync.getBookCount(),
+            catalogueItemCount,
             previousState,
             listState,
-            TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION,
-            "Back"
+            TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTIONS,
+            CATALOGUE_BOTTOM_ACTIONS
         );
         return true;
     }
@@ -188,7 +192,13 @@ NavigationRequest AddBooksPage::select()
         syncResult == BookSyncResult::Success &&
         getBookSync().getBookCount() > 0
     ) {
-        if (listState.selectedIndex >= getBookSync().getBookCount())
+        const uint8_t bookCount = getBookSync().getBookCount();
+        if (listState.selectedIndex == bookCount)
+        {
+            refresh();
+            return noNavigation();
+        }
+        if (listState.selectedIndex == bookCount + 1)
         {
             return { NavigationMode::Pop, PageId::MainMenu };
         }
@@ -225,15 +235,15 @@ uint8_t AddBooksPage::getActions(
     const char** labels
 ) const {
     uint8_t count = 0;
-    if (syncResult == BookSyncResult::RequestFailed)
-    {
-        actions[count] = Action::Retry;
-        labels[count++] = "Retry";
-    }
-    else if (syncResult == BookSyncResult::NotConnected)
+    if (syncResult == BookSyncResult::NotConnected)
     {
         actions[count] = Action::WifiSettings;
         labels[count++] = getPageTitle(PageId::WiFiSettings);
+    }
+    else
+    {
+        actions[count] = Action::Retry;
+        labels[count++] = "Refresh";
     }
     actions[count] = Action::Back;
     labels[count++] = "Back";
@@ -310,8 +320,8 @@ void AddBooksPage::drawResultContent()
                 titles,
                 sync.getBookCount(),
                 listState,
-                TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION,
-                "Back"
+                TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTIONS,
+                CATALOGUE_BOTTOM_ACTIONS
             );
         }
         else
