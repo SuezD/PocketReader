@@ -30,12 +30,28 @@ AddBooksPage::AddBooksPage(ReaderPage& nextReaderPage)
 {
 }
 
+void AddBooksPage::onEnter()
+{
+    completedBookId = "";
+    completedBookTitle = "";
+    downloadStatus = "";
+
+    if (!catalogueFetchAttempted)
+    {
+        state = State::Fetching;
+        fetchPending = true;
+        return;
+    }
+
+    fetchPending = false;
+    state = syncResult == BookSyncResult::Success
+        ? State::Catalogue
+        : State::Error;
+}
+
 void AddBooksPage::draw(uint8_t nextBatteryPercent)
 {
     batteryPercent = nextBatteryPercent;
-    state = State::Fetching;
-    completedBookId = "";
-    completedBookTitle = "";
 
     display.setFullWindow();
     display.firstPage();
@@ -43,12 +59,16 @@ void AddBooksPage::draw(uint8_t nextBatteryPercent)
     {
         display.fillScreen(Theme::BACKGROUND_COLOR);
         drawHeader("ADD BOOKS", batteryPercent);
-        drawMessage("Fetching book catalogue...");
+        drawCurrentContent();
         drawStorageFooter();
     }
     while (display.nextPage());
 
-    fetchAndRenderResult();
+    if (fetchPending)
+    {
+        fetchPending = false;
+        fetchAndRenderResult();
+    }
 }
 
 bool AddBooksPage::handleInput(const InputState& input)
@@ -202,7 +222,7 @@ NavigationRequest AddBooksPage::select()
                         return noNavigation();
                     }
                 }
-                drawResultContent();
+                drawBody();
                 return noNavigation();
             case FailureAction::WifiSettings:
                 downloadStatus = "";
@@ -215,7 +235,7 @@ NavigationRequest AddBooksPage::select()
             case FailureAction::Back:
                 downloadStatus = "";
                 state = State::Catalogue;
-                drawResultContent();
+                drawBody();
                 return noNavigation();
         }
         return noNavigation();
@@ -230,7 +250,7 @@ NavigationRequest AddBooksPage::select()
             {
                 downloadStatus = "Could not open book";
                 state = State::Catalogue;
-                drawResultContent();
+                drawBody();
                 return noNavigation();
             }
             return navigateTo(PageId::ContinueReading);
@@ -239,7 +259,7 @@ NavigationRequest AddBooksPage::select()
         {
             downloadStatus = "";
             state = State::Catalogue;
-            drawResultContent();
+            drawBody();
             return noNavigation();
         }
         return navigateHome();
@@ -318,12 +338,13 @@ uint8_t AddBooksPage::getActions(
 void AddBooksPage::refresh()
 {
     state = State::Fetching;
-    drawLoadingContent();
+    drawBody();
     fetchAndRenderResult();
 }
 
 void AddBooksPage::fetchAndRenderResult()
 {
+    catalogueFetchAttempted = true;
     downloadStatus = "";
     selectedActionIndex = 0;
     syncResult = getBookSync().fetchManifest();
@@ -340,24 +361,63 @@ void AddBooksPage::fetchAndRenderResult()
     {
         state = State::Error;
     }
-    drawResultContent();
+    drawBody();
 }
 
-void AddBooksPage::drawLoadingContent()
+void AddBooksPage::drawBody()
 {
     setPageBodyPartialWindow();
     display.firstPage();
     do
     {
         clearPageBody();
-        drawMessage("Fetching book catalogue...");
+        drawCurrentContent();
         drawStorageFooter();
     }
     while (display.nextPage());
 }
 
-void AddBooksPage::drawResultContent()
+void AddBooksPage::drawCurrentContent()
 {
+    if (state == State::Fetching)
+    {
+        drawMessage("Fetching book catalogue...");
+        return;
+    }
+    if (state == State::Downloading)
+    {
+        drawMessage("Downloading", completedBookTitle.c_str());
+        return;
+    }
+    if (state == State::DownloadComplete)
+    {
+        drawMessage(
+            "Download complete",
+            completedBookTitle.c_str(),
+            DOWNLOAD_COMPLETE_OPTIONS,
+            DOWNLOAD_COMPLETE_OPTION_COUNT,
+            selectedCompleteOption
+        );
+        return;
+    }
+    if (state == State::DownloadFailed)
+    {
+        FailureAction failureActions[MAX_FAILURE_OPTION_COUNT];
+        const char* failureLabels[MAX_FAILURE_OPTION_COUNT];
+        const uint8_t failureOptionCount = getFailureOptions(
+            failureActions,
+            failureLabels
+        );
+        drawMessage(
+            downloadFailureMessage.c_str(),
+            completedBookTitle.c_str(),
+            failureLabels,
+            failureOptionCount,
+            selectedFailureOption
+        );
+        return;
+    }
+
     BookSync& sync = getBookSync();
     const uint8_t availableBookCount = getAvailableBookCount();
     String details;
@@ -377,81 +437,29 @@ void AddBooksPage::drawResultContent()
         details = "HTTP ";
         details += sync.getHttpStatus();
     }
-    setPageBodyPartialWindow();
-    display.firstPage();
-    do
+    if (state == State::Catalogue && availableBookCount > 0)
     {
-        clearPageBody();
-        if (
-            state == State::Catalogue &&
-            availableBookCount > 0
-        ) {
-            const char* titles[MAX_CATALOG_ITEMS];
-            getBookTitles(titles);
-            drawSelectList(
-                titles,
-                availableBookCount,
-                listState,
-                TWO_LINE_SELECT_LIST_WITH_THREE_BOTTOM_ACTIONS,
-                CATALOGUE_BOTTOM_ACTIONS
-            );
-        }
-        else
-        {
-            drawMessage(
-                state == State::Catalogue
-                    ? "All Books Downloaded"
-                    : getBookSyncResultText(syncResult),
-                details.length() > 0 ? details.c_str() : nullptr,
-                labels,
-                actionCount,
-                selectedActionIndex
-            );
-        }
-        drawStorageFooter();
-    }
-    while (display.nextPage());
-}
-
-void AddBooksPage::drawDownloadCompleteContent()
-{
-    setPageBodyPartialWindow();
-    display.firstPage();
-    do
-    {
-        clearPageBody();
-        drawMessage(
-            "Download complete",
-            completedBookTitle.c_str(),
-            DOWNLOAD_COMPLETE_OPTIONS,
-            DOWNLOAD_COMPLETE_OPTION_COUNT,
-            selectedCompleteOption
+        const char* titles[MAX_CATALOG_ITEMS];
+        getBookTitles(titles);
+        drawSelectList(
+            titles,
+            availableBookCount,
+            listState,
+            TWO_LINE_SELECT_LIST_WITH_THREE_BOTTOM_ACTIONS,
+            CATALOGUE_BOTTOM_ACTIONS
         );
-        drawStorageFooter();
+        return;
     }
-    while (display.nextPage());
-}
 
-void AddBooksPage::drawDownloadFailedContent()
-{
-    FailureAction actions[MAX_FAILURE_OPTION_COUNT];
-    const char* labels[MAX_FAILURE_OPTION_COUNT];
-    const uint8_t optionCount = getFailureOptions(actions, labels);
-    setPageBodyPartialWindow();
-    display.firstPage();
-    do
-    {
-        clearPageBody();
-        drawMessage(
-            downloadFailureMessage.c_str(),
-            completedBookTitle.c_str(),
-            labels,
-            optionCount,
-            selectedFailureOption
-        );
-        drawStorageFooter();
-    }
-    while (display.nextPage());
+    drawMessage(
+        state == State::Catalogue
+            ? "All Books Downloaded"
+            : getBookSyncResultText(syncResult),
+        details.length() > 0 ? details.c_str() : nullptr,
+        labels,
+        actionCount,
+        selectedActionIndex
+    );
 }
 
 void AddBooksPage::showDownloadFailure(
@@ -466,7 +474,7 @@ void AddBooksPage::showDownloadFailure(
     failurePrimaryAction = primaryAction;
     selectedFailureOption = 0;
     state = State::DownloadFailed;
-    drawDownloadFailedContent();
+    drawBody();
 }
 
 uint8_t AddBooksPage::getFailureOptions(
@@ -608,17 +616,10 @@ void AddBooksPage::downloadSelectedBook()
     const RemoteBook* selectedBook = getAvailableBook(listState.selectedIndex);
     if (selectedBook == nullptr) return;
     const RemoteBook& book = *selectedBook;
+    completedBookId = book.id;
+    completedBookTitle = book.title;
     state = State::Downloading;
-
-    setPageBodyPartialWindow();
-    display.firstPage();
-    do
-    {
-        clearPageBody();
-        drawMessage("Downloading", book.title);
-        drawStorageFooter();
-    }
-    while (display.nextPage());
+    drawBody();
 
     const BookDownloadResult result = sync.downloadBook(book);
     Serial.print(F("[BookSync] Download result for '"));
@@ -644,13 +645,13 @@ void AddBooksPage::downloadSelectedBook()
             completedBookTitle = book.title;
             selectedCompleteOption = 0;
             state = State::DownloadComplete;
-            drawDownloadCompleteContent();
+            drawBody();
             return;
         }
         if (installResult == BookInstallResult::AlreadyCached)
         {
             state = State::Catalogue;
-            drawResultContent();
+            drawBody();
             return;
         }
         const FailureAction action =

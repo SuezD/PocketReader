@@ -9,6 +9,7 @@ class AddBooksPage : public Page
 {
 public:
     explicit AddBooksPage(ReaderPage& readerPage);
+    void onEnter() override;
     void draw(uint8_t batteryPercent) override;
     bool handleInput(const InputState& input) override;
     NavigationRequest select() override;
@@ -59,14 +60,14 @@ private:
     FailureAction failurePrimaryAction = FailureAction::Retry;
     uint8_t selectedFailureOption = 0;
     uint8_t selectedCompleteOption = 0;
+    bool fetchPending = false;
+    bool catalogueFetchAttempted = false;
 
     uint8_t getActions(Action* actions, const char** labels) const;
     void refresh();
     void fetchAndRenderResult();
-    void drawLoadingContent();
-    void drawResultContent();
-    void drawDownloadCompleteContent();
-    void drawDownloadFailedContent();
+    void drawBody();
+    void drawCurrentContent();
     void showDownloadFailure(
         const char* message,
         const char* bookId,
