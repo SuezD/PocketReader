@@ -46,6 +46,8 @@ public:
     const RemoteBook& getBook(uint8_t index) const;
     int getHttpStatus() const;
     const char* getTemporaryDownloadPath() const;
+    bool hasManifestResultFor(uint32_t serverRevision) const;
+    BookSyncResult getLastManifestResult() const;
 
 private:
     static constexpr uint8_t MAX_BOOK_COUNT = 16;
@@ -62,8 +64,12 @@ private:
     char urls[MAX_BOOK_COUNT][MAX_URL_LENGTH + 1] = {};
     uint8_t bookCount = 0;
     int httpStatus = 0;
+    bool manifestFetchAttempted = false;
+    uint32_t manifestServerRevision = 0;
+    BookSyncResult lastManifestResult = BookSyncResult::NotConfigured;
 
     void clear();
+    BookSyncResult finishManifestFetch(BookSyncResult result);
     bool parseManifest(const String& manifest);
     bool addBook(char* line);
 };

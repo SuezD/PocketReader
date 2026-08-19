@@ -4,7 +4,7 @@
 #include "screens/MainMenu.h"
 #include "screens/MyBooks.h"
 #include "screens/Reader.h"
-#include "screens/WifiSettings.h"
+#include "screens/Settings.h"
 
 namespace
 {
@@ -12,7 +12,7 @@ namespace
     ReaderPage continueReadingPage;
     MyBooksPage myBooksPage(continueReadingPage);
     AddBooksPage addBooksPage(continueReadingPage);
-    WifiSettingsPage wiFiSettingsPage;
+    SettingsPage settingsPage;
 
     const PageDefinition PAGES[] = {
 #define PAGE(id, title, instance) { PageId::id, title, &instance },
@@ -25,7 +25,7 @@ const NavigationRequest MAIN_MENU_OPTIONS[] = {
     navigateTo(PageId::ContinueReading),
     navigateTo(PageId::MyBooks),
     navigateTo(PageId::AddBooks),
-    navigateTo(PageId::WiFiSettings)
+    navigateTo(PageId::Settings)
 };
 
 const uint8_t MAIN_MENU_OPTION_COUNT =

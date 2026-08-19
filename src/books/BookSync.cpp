@@ -92,21 +92,22 @@ namespace
 BookSyncResult BookSync::fetchManifest()
 {
     clear();
+    manifestServerRevision = getBookServerSettings().getRevision();
     const char* configuredUrl = getBookServerSettings().getManifestUrl();
     if (configuredUrl[0] == '\0')
     {
-        return BookSyncResult::NotConfigured;
+        return finishManifestFetch(BookSyncResult::NotConfigured);
     }
     if (!getWifiManager().isConnected())
     {
-        return BookSyncResult::NotConnected;
+        return finishManifestFetch(BookSyncResult::NotConnected);
     }
 
     const String manifestUrl = configuredUrl;
     const bool usesTls = manifestUrl.startsWith("https://");
     if (!usesTls && !manifestUrl.startsWith("http://"))
     {
-        return BookSyncResult::NotConfigured;
+        return finishManifestFetch(BookSyncResult::NotConfigured);
     }
 
     WiFiClient plainClient;
@@ -116,7 +117,9 @@ BookSyncResult BookSync::fetchManifest()
     {
         if (!ensureClockSynchronized())
         {
-            return BookSyncResult::ClockNotSynchronized;
+            return finishManifestFetch(
+                BookSyncResult::ClockNotSynchronized
+            );
         }
         configureTrustedTls(secureClient);
         client = &secureClient;
@@ -128,7 +131,7 @@ BookSyncResult BookSync::fetchManifest()
     request.setUserAgent("PocketReader/1.0");
     if (!request.begin(*client, manifestUrl))
     {
-        return BookSyncResult::RequestFailed;
+        return finishManifestFetch(BookSyncResult::RequestFailed);
     }
     addAuthorizationHeader(request);
 
@@ -137,14 +140,16 @@ BookSyncResult BookSync::fetchManifest()
     {
         if (usesTls) logSecureConnectionFailure(secureClient);
         request.end();
-        return usesTls
-            ? BookSyncResult::SecureConnectionFailed
-            : BookSyncResult::RequestFailed;
+        return finishManifestFetch(
+            usesTls
+                ? BookSyncResult::SecureConnectionFailed
+                : BookSyncResult::RequestFailed
+        );
     }
     if (httpStatus < 200 || httpStatus >= 300)
     {
         request.end();
-        return BookSyncResult::HttpError;
+        return finishManifestFetch(BookSyncResult::HttpError);
     }
 
     const int responseSize = request.getSize();
@@ -153,21 +158,21 @@ BookSyncResult BookSync::fetchManifest()
         static_cast<size_t>(responseSize) > MAX_MANIFEST_BYTES
     ) {
         request.end();
-        return BookSyncResult::ManifestTooLarge;
+        return finishManifestFetch(BookSyncResult::ManifestTooLarge);
     }
 
     const String manifest = request.getString();
     request.end();
     if (manifest.length() > MAX_MANIFEST_BYTES)
     {
-        return BookSyncResult::ManifestTooLarge;
+        return finishManifestFetch(BookSyncResult::ManifestTooLarge);
     }
     if (!parseManifest(manifest))
     {
         clear();
-        return BookSyncResult::InvalidManifest;
+        return finishManifestFetch(BookSyncResult::InvalidManifest);
     }
-    return BookSyncResult::Success;
+    return finishManifestFetch(BookSyncResult::Success);
 }
 
 BookDownloadResult BookSync::downloadBook(const RemoteBook& book)
@@ -280,6 +285,25 @@ int BookSync::getHttpStatus() const
 const char* BookSync::getTemporaryDownloadPath() const
 {
     return TEMPORARY_DOWNLOAD_PATH;
+}
+
+bool BookSync::hasManifestResultFor(uint32_t serverRevision) const
+{
+    return
+        manifestFetchAttempted &&
+        manifestServerRevision == serverRevision;
+}
+
+BookSyncResult BookSync::getLastManifestResult() const
+{
+    return lastManifestResult;
+}
+
+BookSyncResult BookSync::finishManifestFetch(BookSyncResult result)
+{
+    manifestFetchAttempted = true;
+    lastManifestResult = result;
+    return result;
 }
 
 void BookSync::clear()

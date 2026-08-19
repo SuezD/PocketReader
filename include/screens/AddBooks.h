@@ -10,7 +10,6 @@ class AddBooksPage : public Page
 public:
     explicit AddBooksPage(ReaderPage& readerPage);
     void onEnter() override;
-    void onExit() override;
     void draw(uint8_t batteryPercent) override;
     bool handleInput(const InputState& input) override;
     NavigationRequest select() override;
@@ -26,7 +25,6 @@ private:
         Fetching,
         Catalogue,
         Error,
-        ServerSetupInstructions,
         Downloading,
         DownloadFailed,
         DownloadComplete
@@ -35,7 +33,7 @@ private:
     enum class FailureAction : uint8_t
     {
         Retry,
-        WifiSettings,
+        Settings,
         MyBooks,
         Back
     };
@@ -43,8 +41,7 @@ private:
     enum class Action : uint8_t
     {
         Retry,
-        WifiSettings,
-        ConfigureServer,
+        Configure,
         Back
     };
 
@@ -69,14 +66,10 @@ private:
     uint8_t selectedCompleteOption = 0;
     bool fetchPending = false;
     bool catalogueFetchAttempted = false;
-    State stateBeforeServerSetup = State::Error;
     uint32_t catalogueServerRevision = 0;
-    uint32_t setupServerRevision = 0;
 
     uint8_t getActions(Action* actions, const char** labels) const;
     void refresh();
-    void openServerSetup();
-    String getServerSetupInstructions() const;
     void fetchAndRenderResult();
     void drawBody();
     void drawCurrentContent();
