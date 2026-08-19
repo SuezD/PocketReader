@@ -20,7 +20,16 @@ private:
         Catalogue,
         Error,
         Downloading,
+        DownloadFailed,
         DownloadComplete
+    };
+
+    enum class FailureAction : uint8_t
+    {
+        Retry,
+        WifiSettings,
+        MyBooks,
+        Back
     };
 
     enum class Action : uint8_t
@@ -34,6 +43,7 @@ private:
     static constexpr uint8_t MAX_CATALOG_BOOKS = 16;
     static constexpr uint8_t MAX_CATALOG_ITEMS = MAX_CATALOG_BOOKS;
     static constexpr uint8_t DOWNLOAD_COMPLETE_OPTION_COUNT = 3;
+    static constexpr uint8_t MAX_FAILURE_OPTION_COUNT = 2;
 
     ReaderPage& readerPage;
     State state = State::Fetching;
@@ -44,6 +54,9 @@ private:
     String downloadStatus;
     String completedBookId;
     String completedBookTitle;
+    String downloadFailureMessage;
+    FailureAction failurePrimaryAction = FailureAction::Retry;
+    uint8_t selectedFailureOption = 0;
     uint8_t selectedCompleteOption = 0;
 
     uint8_t getActions(Action* actions, const char** labels) const;
@@ -52,6 +65,17 @@ private:
     void drawLoadingContent();
     void drawResultContent();
     void drawDownloadCompleteContent();
+    void drawDownloadFailedContent();
+    void showDownloadFailure(
+        const char* message,
+        const char* bookId,
+        const char* bookTitle,
+        FailureAction primaryAction
+    );
+    uint8_t getFailureOptions(
+        FailureAction* actions,
+        const char** labels
+    ) const;
     uint8_t getAvailableBookCount() const;
     const RemoteBook* getAvailableBook(uint8_t availableIndex) const;
     void getBookTitles(const char** titles) const;

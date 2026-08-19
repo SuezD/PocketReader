@@ -51,6 +51,30 @@ void AddBooksPage::draw(uint8_t nextBatteryPercent)
 bool AddBooksPage::handleInput(const InputState& input)
 {
     BookSync& sync = getBookSync();
+    if (state == State::DownloadFailed)
+    {
+        FailureAction actions[MAX_FAILURE_OPTION_COUNT];
+        const char* labels[MAX_FAILURE_OPTION_COUNT];
+        const uint8_t optionCount = getFailureOptions(actions, labels);
+        const uint8_t previousIndex = selectedFailureOption;
+        if (!moveSelection(
+            input,
+            selectedFailureOption,
+            optionCount
+        )) {
+            return input.upPressed || input.downPressed;
+        }
+        redrawMessageSelection(
+            downloadFailureMessage.c_str(),
+            completedBookTitle.c_str(),
+            labels,
+            optionCount,
+            previousIndex,
+            selectedFailureOption
+        );
+        return true;
+    }
+
     if (state == State::DownloadComplete)
     {
         const uint8_t previousIndex = selectedCompleteOption;
@@ -149,6 +173,50 @@ bool AddBooksPage::handleInput(const InputState& input)
 
 NavigationRequest AddBooksPage::select()
 {
+    if (state == State::DownloadFailed)
+    {
+        FailureAction actions[MAX_FAILURE_OPTION_COUNT];
+        const char* labels[MAX_FAILURE_OPTION_COUNT];
+        const uint8_t optionCount = getFailureOptions(actions, labels);
+        if (selectedFailureOption >= optionCount) selectedFailureOption = 0;
+        switch (actions[selectedFailureOption])
+        {
+            case FailureAction::Retry:
+                state = State::Catalogue;
+                for (
+                    uint8_t index = 0;
+                    index < getAvailableBookCount();
+                    index++
+                ) {
+                    const RemoteBook* book = getAvailableBook(index);
+                    if (
+                        book != nullptr &&
+                        completedBookId.equals(book->id)
+                    ) {
+                        listState.selectedIndex = index;
+                        downloadSelectedBook();
+                        return noNavigation();
+                    }
+                }
+                drawResultContent();
+                return noNavigation();
+            case FailureAction::WifiSettings:
+                downloadStatus = "";
+                state = State::Catalogue;
+                return navigateTo(PageId::WiFiSettings);
+            case FailureAction::MyBooks:
+                downloadStatus = "";
+                state = State::Catalogue;
+                return navigateTo(PageId::MyBooks);
+            case FailureAction::Back:
+                downloadStatus = "";
+                state = State::Catalogue;
+                drawResultContent();
+                return noNavigation();
+        }
+        return noNavigation();
+    }
+
     if (state == State::DownloadComplete)
     {
         if (selectedCompleteOption == 0)
@@ -165,6 +233,7 @@ NavigationRequest AddBooksPage::select()
         }
         if (selectedCompleteOption == 1)
         {
+            downloadStatus = "";
             state = State::Catalogue;
             drawResultContent();
             return noNavigation();
@@ -356,6 +425,61 @@ void AddBooksPage::drawDownloadCompleteContent()
     while (display.nextPage());
 }
 
+void AddBooksPage::drawDownloadFailedContent()
+{
+    FailureAction actions[MAX_FAILURE_OPTION_COUNT];
+    const char* labels[MAX_FAILURE_OPTION_COUNT];
+    const uint8_t optionCount = getFailureOptions(actions, labels);
+    display.setFullWindow();
+    display.firstPage();
+    do
+    {
+        display.fillScreen(Theme::BACKGROUND_COLOR);
+        drawHeader("ADD BOOKS", batteryPercent);
+        drawMessage(
+            downloadFailureMessage.c_str(),
+            completedBookTitle.c_str(),
+            labels,
+            optionCount,
+            selectedFailureOption
+        );
+        drawFooter();
+    }
+    while (display.nextPage());
+}
+
+void AddBooksPage::showDownloadFailure(
+    const char* message,
+    const char* bookId,
+    const char* bookTitle,
+    FailureAction primaryAction
+) {
+    downloadFailureMessage = message;
+    completedBookId = bookId;
+    completedBookTitle = bookTitle;
+    failurePrimaryAction = primaryAction;
+    selectedFailureOption = 0;
+    state = State::DownloadFailed;
+    drawDownloadFailedContent();
+}
+
+uint8_t AddBooksPage::getFailureOptions(
+    FailureAction* actions,
+    const char** labels
+) const {
+    actions[0] = failurePrimaryAction;
+    switch (failurePrimaryAction)
+    {
+        case FailureAction::Retry: labels[0] = "Retry"; break;
+        case FailureAction::WifiSettings: labels[0] = "Wi-Fi Settings"; break;
+        case FailureAction::MyBooks: labels[0] = "My Books"; break;
+        case FailureAction::Back: labels[0] = "Back to Catalogue"; break;
+    }
+    actions[1] = FailureAction::Back;
+    labels[1] = "Back to Catalogue";
+    return MAX_FAILURE_OPTION_COUNT;
+}
+
 void AddBooksPage::getBookTitles(const char** titles) const
 {
     const uint8_t availableBookCount = getAvailableBookCount();
@@ -439,11 +563,39 @@ void AddBooksPage::downloadSelectedBook()
             drawDownloadCompleteContent();
             return;
         }
+        if (installResult == BookInstallResult::AlreadyCached)
+        {
+            state = State::Catalogue;
+            drawResultContent();
+            return;
+        }
+        const FailureAction action =
+            installResult == BookInstallResult::LibraryFull ||
+            installResult == BookInstallResult::StorageError
+                ? FailureAction::MyBooks
+                : FailureAction::Retry;
+        showDownloadFailure(
+            getBookInstallResultText(installResult),
+            book.id,
+            book.title,
+            action
+        );
+        return;
     }
-    else
+
+    downloadStatus = getBookDownloadResultText(result);
+    FailureAction action = FailureAction::Retry;
+    if (result == BookDownloadResult::NotConnected)
     {
-        downloadStatus = getBookDownloadResultText(result);
+        action = FailureAction::WifiSettings;
     }
-    state = State::Catalogue;
-    drawResultContent();
+    else if (
+        result == BookDownloadResult::NotEnoughSpace ||
+        result == BookDownloadResult::StorageError
+    ) {
+        action = FailureAction::MyBooks;
+    }
+    showDownloadFailure(
+        downloadStatus.c_str(), book.id, book.title, action
+    );
 }
