@@ -14,6 +14,15 @@ public:
     NavigationRequest select() override;
 
 private:
+    enum class State : uint8_t
+    {
+        Fetching,
+        Catalogue,
+        Error,
+        Downloading,
+        DownloadComplete
+    };
+
     enum class Action : uint8_t
     {
         Retry,
@@ -27,6 +36,7 @@ private:
     static constexpr uint8_t DOWNLOAD_COMPLETE_OPTION_COUNT = 3;
 
     ReaderPage& readerPage;
+    State state = State::Fetching;
     BookSyncResult syncResult = BookSyncResult::NotConfigured;
     uint8_t batteryPercent = 0;
     SelectListState listState = {};
@@ -34,7 +44,6 @@ private:
     String downloadStatus;
     String completedBookId;
     String completedBookTitle;
-    bool downloadComplete = false;
     uint8_t selectedCompleteOption = 0;
 
     uint8_t getActions(Action* actions, const char** labels) const;

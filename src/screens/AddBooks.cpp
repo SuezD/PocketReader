@@ -30,7 +30,7 @@ AddBooksPage::AddBooksPage(ReaderPage& nextReaderPage)
 void AddBooksPage::draw(uint8_t nextBatteryPercent)
 {
     batteryPercent = nextBatteryPercent;
-    downloadComplete = false;
+    state = State::Fetching;
     completedBookId = "";
     completedBookTitle = "";
 
@@ -51,7 +51,7 @@ void AddBooksPage::draw(uint8_t nextBatteryPercent)
 bool AddBooksPage::handleInput(const InputState& input)
 {
     BookSync& sync = getBookSync();
-    if (downloadComplete)
+    if (state == State::DownloadComplete)
     {
         const uint8_t previousIndex = selectedCompleteOption;
         if (!moveSelection(
@@ -75,7 +75,7 @@ bool AddBooksPage::handleInput(const InputState& input)
 
     const uint8_t availableBookCount = getAvailableBookCount();
     if (
-        syncResult == BookSyncResult::Success &&
+        state == State::Catalogue &&
         availableBookCount > 0
     ) {
         const uint8_t catalogueItemCount = availableBookCount;
@@ -122,7 +122,7 @@ bool AddBooksPage::handleInput(const InputState& input)
         return input.upPressed || input.downPressed;
     }
     String details;
-    if (syncResult == BookSyncResult::Success)
+    if (state == State::Catalogue)
     {
         details = availableBookCount;
         details += availableBookCount == 1
@@ -135,7 +135,7 @@ bool AddBooksPage::handleInput(const InputState& input)
         details += sync.getHttpStatus();
     }
     redrawMessageSelection(
-        syncResult == BookSyncResult::Success
+        state == State::Catalogue
             ? "All Books Downloaded"
             : getBookSyncResultText(syncResult),
         details.length() > 0 ? details.c_str() : nullptr,
@@ -149,7 +149,7 @@ bool AddBooksPage::handleInput(const InputState& input)
 
 NavigationRequest AddBooksPage::select()
 {
-    if (downloadComplete)
+    if (state == State::DownloadComplete)
     {
         if (selectedCompleteOption == 0)
         {
@@ -157,7 +157,7 @@ NavigationRequest AddBooksPage::select()
             if (book == nullptr || !readerPage.open(book, getCachedBookPage(*book)))
             {
                 downloadStatus = "Could not open book";
-                downloadComplete = false;
+                state = State::Catalogue;
                 drawResultContent();
                 return noNavigation();
             }
@@ -165,7 +165,7 @@ NavigationRequest AddBooksPage::select()
         }
         if (selectedCompleteOption == 1)
         {
-            downloadComplete = false;
+            state = State::Catalogue;
             drawResultContent();
             return noNavigation();
         }
@@ -173,7 +173,7 @@ NavigationRequest AddBooksPage::select()
     }
 
     if (
-        syncResult == BookSyncResult::Success &&
+        state == State::Catalogue &&
         getAvailableBookCount() > 0
     ) {
         const uint8_t bookCount = getAvailableBookCount();
@@ -236,6 +236,7 @@ uint8_t AddBooksPage::getActions(
 
 void AddBooksPage::refresh()
 {
+    state = State::Fetching;
     drawLoadingContent();
     fetchAndRenderResult();
 }
@@ -251,7 +252,12 @@ void AddBooksPage::fetchAndRenderResult()
     Serial.println(getBookSync().getBookCount());
     if (syncResult == BookSyncResult::Success)
     {
+        state = State::Catalogue;
         resetSelectList(listState);
+    }
+    else
+    {
+        state = State::Error;
     }
     drawResultContent();
 }
@@ -277,7 +283,7 @@ void AddBooksPage::drawResultContent()
     const char* labels[MAX_ACTION_COUNT];
     const uint8_t actionCount = getActions(actions, labels);
 
-    if (syncResult == BookSyncResult::Success)
+    if (state == State::Catalogue)
     {
         details = availableBookCount;
         details += availableBookCount == 1
@@ -296,7 +302,7 @@ void AddBooksPage::drawResultContent()
         display.fillScreen(Theme::BACKGROUND_COLOR);
         drawHeader("ADD BOOKS", batteryPercent);
         if (
-            syncResult == BookSyncResult::Success &&
+            state == State::Catalogue &&
             availableBookCount > 0
         ) {
             const char* titles[MAX_CATALOG_ITEMS];
@@ -312,7 +318,7 @@ void AddBooksPage::drawResultContent()
         else
         {
             drawMessage(
-                syncResult == BookSyncResult::Success
+                state == State::Catalogue
                     ? "All Books Downloaded"
                     : getBookSyncResultText(syncResult),
                 details.length() > 0 ? details.c_str() : nullptr,
@@ -395,6 +401,7 @@ void AddBooksPage::downloadSelectedBook()
     const RemoteBook* selectedBook = getAvailableBook(listState.selectedIndex);
     if (selectedBook == nullptr) return;
     const RemoteBook& book = *selectedBook;
+    state = State::Downloading;
 
     setPageContentPartialWindow();
     display.firstPage();
@@ -428,7 +435,7 @@ void AddBooksPage::downloadSelectedBook()
             completedBookId = book.id;
             completedBookTitle = book.title;
             selectedCompleteOption = 0;
-            downloadComplete = true;
+            state = State::DownloadComplete;
             drawDownloadCompleteContent();
             return;
         }
@@ -437,5 +444,6 @@ void AddBooksPage::downloadSelectedBook()
     {
         downloadStatus = getBookDownloadResultText(result);
     }
+    state = State::Catalogue;
     drawResultContent();
 }
