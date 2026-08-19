@@ -9,9 +9,9 @@
 #include "components/PageContent.h"
 #include "navigation/PageRegistry.h"
 
-void AddBooksPage::draw(uint8_t batteryPercent)
+void AddBooksPage::draw(uint8_t nextBatteryPercent)
 {
-    BookSync& sync = getBookSync();
+    batteryPercent = nextBatteryPercent;
 
     display.setFullWindow();
     display.firstPage();
@@ -24,10 +24,89 @@ void AddBooksPage::draw(uint8_t batteryPercent)
     }
     while (display.nextPage());
 
-    syncResult = sync.fetchManifest();
+    fetchAndRenderResult();
+}
+
+bool AddBooksPage::handleInput(const InputState& input)
+{
+    return input.upPressed || input.downPressed;
+}
+
+NavigationRequest AddBooksPage::select()
+{
+    Action actions[MAX_ACTION_COUNT];
+    const char* labels[MAX_ACTION_COUNT];
+    const uint8_t actionCount = getActions(actions, labels);
+
+    if (actionCount == 0)
+    {
+        return noNavigation();
+    }
+
+    switch (actions[0])
+    {
+        case Action::Retry:
+            refresh();
+            return noNavigation();
+        case Action::WifiSettings:
+            return ADD_BOOKS_OFFLINE_OPTIONS[0];
+    }
+
+    return noNavigation();
+}
+
+uint8_t AddBooksPage::getActions(
+    Action* actions,
+    const char** labels
+) const {
+    if (syncResult == BookSyncResult::RequestFailed)
+    {
+        actions[0] = Action::Retry;
+        labels[0] = "Retry";
+        return 1;
+    }
+
+    if (syncResult == BookSyncResult::NotConnected)
+    {
+        actions[0] = Action::WifiSettings;
+        labels[0] = getPageTitle(PageId::WiFiSettings);
+        return 1;
+    }
+
+    return 0;
+}
+
+void AddBooksPage::refresh()
+{
+    drawLoadingContent();
+    fetchAndRenderResult();
+}
+
+void AddBooksPage::fetchAndRenderResult()
+{
+    syncResult = getBookSync().fetchManifest();
+    drawResultContent();
+}
+
+void AddBooksPage::drawLoadingContent()
+{
+    setPageContentPartialWindow();
+    display.firstPage();
+    do
+    {
+        clearPageContent();
+        drawMessage("Fetching book catalogue...");
+    }
+    while (display.nextPage());
+}
+
+void AddBooksPage::drawResultContent()
+{
+    BookSync& sync = getBookSync();
     String details;
-    const char* options[MAX_NAVIGATION_OPTIONS];
-    uint8_t optionCount = 0;
+    Action actions[MAX_ACTION_COUNT];
+    const char* labels[MAX_ACTION_COUNT];
+    const uint8_t actionCount = getActions(actions, labels);
 
     if (syncResult == BookSyncResult::Success)
     {
@@ -41,16 +120,6 @@ void AddBooksPage::draw(uint8_t batteryPercent)
         details = "HTTP ";
         details += sync.getHttpStatus();
     }
-    else if (syncResult == BookSyncResult::NotConnected)
-    {
-        optionCount = ADD_BOOKS_OFFLINE_OPTION_COUNT;
-        getNavigationOptionLabels(
-            ADD_BOOKS_OFFLINE_OPTIONS,
-            options,
-            optionCount
-        );
-    }
-
     setPageContentPartialWindow();
     display.firstPage();
     do
@@ -59,22 +128,10 @@ void AddBooksPage::draw(uint8_t batteryPercent)
         drawMessage(
             getBookSyncResultText(syncResult),
             details.length() > 0 ? details.c_str() : nullptr,
-            options,
-            optionCount,
+            labels,
+            actionCount,
             0
         );
     }
     while (display.nextPage());
-}
-
-bool AddBooksPage::handleInput(const InputState& input)
-{
-    return input.upPressed || input.downPressed;
-}
-
-NavigationRequest AddBooksPage::select()
-{
-    return syncResult == BookSyncResult::NotConnected
-        ? ADD_BOOKS_OFFLINE_OPTIONS[0]
-        : noNavigation();
 }
