@@ -11,7 +11,9 @@
 
 namespace
 {
-    constexpr const char* MY_BOOKS_BOTTOM_ACTIONS[] = { "Back" };
+    constexpr const char* MY_BOOKS_BOTTOM_ACTIONS[] = {
+        "Add Books", "Back"
+    };
 }
 
 MyBooksPage::MyBooksPage(SelectedCachedBook& nextSelectedBook)
@@ -54,7 +56,7 @@ void MyBooksPage::draw(uint8_t batteryPercent)
                 items,
                 itemCount,
                 listState,
-                TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION,
+                TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTIONS,
                 MY_BOOKS_BOTTOM_ACTIONS
             );
         }
@@ -102,11 +104,11 @@ bool MyBooksPage::handleInput(const InputState& input)
 
     if (input.upPressed && !input.downPressed)
     {
-        moveSelectListUp(listState, itemCount + 1);
+        moveSelectListUp(listState, itemCount + 2);
     }
     else if (input.downPressed && !input.upPressed)
     {
-        moveSelectListDown(listState, itemCount + 1);
+        moveSelectListDown(listState, itemCount + 2);
     }
     else
     {
@@ -118,7 +120,7 @@ bool MyBooksPage::handleInput(const InputState& input)
         getCachedBookCount(),
         previousState,
         listState,
-        TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION,
+        TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTIONS,
         MY_BOOKS_BOTTOM_ACTIONS
     );
 
@@ -132,7 +134,12 @@ NavigationRequest MyBooksPage::select()
         return MY_BOOKS_EMPTY_OPTIONS[selectedEmptyOption];
     }
 
-    if (listState.selectedIndex >= getCachedBookCount())
+    if (listState.selectedIndex == getCachedBookCount())
+    {
+        return navigateTo(PageId::AddBooks);
+    }
+
+    if (listState.selectedIndex > getCachedBookCount())
     {
         return navigateBack();
     }

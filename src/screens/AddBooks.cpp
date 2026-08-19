@@ -18,7 +18,7 @@ namespace
         "Read", "Back to Catalogue", "Main Menu"
     };
     constexpr const char* CATALOGUE_BOTTOM_ACTIONS[] = {
-        "Refresh", "Back"
+        "Refresh", "My Books", "Back"
     };
 }
 
@@ -103,7 +103,7 @@ bool AddBooksPage::handleInput(const InputState& input)
         availableBookCount > 0
     ) {
         const uint8_t catalogueItemCount = availableBookCount;
-        const uint8_t selectableItemCount = catalogueItemCount + 2;
+        const uint8_t selectableItemCount = catalogueItemCount + 3;
         const SelectListState previousState = listState;
         if (input.upPressed && !input.downPressed)
         {
@@ -131,7 +131,7 @@ bool AddBooksPage::handleInput(const InputState& input)
             catalogueItemCount,
             previousState,
             listState,
-            TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTIONS,
+            TWO_LINE_SELECT_LIST_WITH_THREE_BOTTOM_ACTIONS,
             CATALOGUE_BOTTOM_ACTIONS
         );
         return true;
@@ -253,6 +253,10 @@ NavigationRequest AddBooksPage::select()
         }
         if (listState.selectedIndex == bookCount + 1)
         {
+            return navigateTo(PageId::MyBooks);
+        }
+        if (listState.selectedIndex == bookCount + 2)
+        {
             return navigateBack();
         }
         downloadSelectedBook();
@@ -276,6 +280,8 @@ NavigationRequest AddBooksPage::select()
             return noNavigation();
         case Action::WifiSettings:
             return ADD_BOOKS_OFFLINE_OPTIONS[0];
+        case Action::MyBooks:
+            return navigateTo(PageId::MyBooks);
         case Action::Back:
             return navigateBack();
     }
@@ -298,6 +304,8 @@ uint8_t AddBooksPage::getActions(
         actions[count] = Action::Retry;
         labels[count++] = "Refresh";
     }
+    actions[count] = Action::MyBooks;
+    labels[count++] = "My Books";
     actions[count] = Action::Back;
     labels[count++] = "Back";
     return count;
@@ -380,7 +388,7 @@ void AddBooksPage::drawResultContent()
                 titles,
                 availableBookCount,
                 listState,
-                TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTIONS,
+                TWO_LINE_SELECT_LIST_WITH_THREE_BOTTOM_ACTIONS,
                 CATALOGUE_BOTTOM_ACTIONS
             );
         }

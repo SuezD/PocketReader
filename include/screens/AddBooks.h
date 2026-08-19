@@ -36,10 +36,11 @@ private:
     {
         Retry,
         WifiSettings,
+        MyBooks,
         Back
     };
 
-    static constexpr uint8_t MAX_ACTION_COUNT = 2;
+    static constexpr uint8_t MAX_ACTION_COUNT = 3;
     static constexpr uint8_t MAX_CATALOG_BOOKS = 16;
     static constexpr uint8_t MAX_CATALOG_ITEMS = MAX_CATALOG_BOOKS;
     static constexpr uint8_t DOWNLOAD_COMPLETE_OPTION_COUNT = 3;

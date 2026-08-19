@@ -26,6 +26,7 @@ struct SelectListConfig
 constexpr SelectListConfig TWO_LINE_SELECT_LIST(2);
 constexpr SelectListConfig TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTION(2, 1);
 constexpr SelectListConfig TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTIONS(2, 2);
+constexpr SelectListConfig TWO_LINE_SELECT_LIST_WITH_THREE_BOTTOM_ACTIONS(2, 3);
 
 void resetSelectList(SelectListState& state);
 
