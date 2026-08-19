@@ -7,6 +7,7 @@
 #include "components/CenteredMessage.h"
 #include "components/Footer.h"
 #include "components/Header.h"
+#include "components/PageContent.h"
 #include "navigation/PageRegistry.h"
 
 namespace
@@ -17,8 +18,6 @@ namespace
     constexpr uint8_t MAX_LINE_LENGTH = 48;
     constexpr uint8_t PARTIAL_TURNS_BEFORE_FULL_REFRESH = 12;
     constexpr uint8_t PAGE_TURNS_BEFORE_PROGRESS_FLUSH = 5;
-    constexpr int READER_PARTIAL_UPDATE_TOP =
-        Theme::HEADER_HEIGHT + 1;
 }
 
 bool ReaderPage::hasOpenDocument() const
@@ -281,9 +280,9 @@ void ReaderPage::draw(uint8_t batteryPercent)
     {
         display.setPartialWindow(
             0,
-            READER_PARTIAL_UPDATE_TOP,
+            Theme::HEADER_HEIGHT,
             display.width(),
-            display.height() - READER_PARTIAL_UPDATE_TOP
+            display.height() - Theme::HEADER_HEIGHT
         );
     }
 
@@ -297,11 +296,12 @@ void ReaderPage::draw(uint8_t batteryPercent)
         }
         else
         {
+            clearPageContent();
             display.fillRect(
                 0,
-                READER_PARTIAL_UPDATE_TOP,
+                display.height() - Theme::FOOTER_HEIGHT + 1,
                 display.width(),
-                display.height() - READER_PARTIAL_UPDATE_TOP,
+                Theme::FOOTER_HEIGHT - 1,
                 Theme::BACKGROUND_COLOR
             );
         }
