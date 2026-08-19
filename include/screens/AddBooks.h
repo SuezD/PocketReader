@@ -43,6 +43,8 @@ private:
     void drawLoadingContent();
     void drawResultContent();
     void drawDownloadCompleteContent();
+    uint8_t getAvailableBookCount() const;
+    const RemoteBook* getAvailableBook(uint8_t availableIndex) const;
     void getBookTitles(const char** titles) const;
     void downloadSelectedBook();
 };

@@ -80,11 +80,12 @@ bool AddBooksPage::handleInput(const InputState& input)
         return true;
     }
 
+    const uint8_t availableBookCount = getAvailableBookCount();
     if (
         syncResult == BookSyncResult::Success &&
-        sync.getBookCount() > 0
+        availableBookCount > 0
     ) {
-        const uint8_t catalogueItemCount = sync.getBookCount();
+        const uint8_t catalogueItemCount = availableBookCount;
         const uint8_t selectableItemCount = catalogueItemCount + 2;
         const SelectListState previousState = listState;
         if (input.upPressed && !input.downPressed)
@@ -140,8 +141,8 @@ bool AddBooksPage::handleInput(const InputState& input)
     String details;
     if (syncResult == BookSyncResult::Success)
     {
-        details = sync.getBookCount();
-        details += sync.getBookCount() == 1
+        details = availableBookCount;
+        details += availableBookCount == 1
             ? " book available"
             : " books available";
     }
@@ -152,7 +153,7 @@ bool AddBooksPage::handleInput(const InputState& input)
     }
     redrawMessageSelection(
         syncResult == BookSyncResult::Success
-            ? "No books available"
+            ? "All Books Downloaded"
             : getBookSyncResultText(syncResult),
         details.length() > 0 ? details.c_str() : nullptr,
         labels,
@@ -190,9 +191,9 @@ NavigationRequest AddBooksPage::select()
 
     if (
         syncResult == BookSyncResult::Success &&
-        getBookSync().getBookCount() > 0
+        getAvailableBookCount() > 0
     ) {
-        const uint8_t bookCount = getBookSync().getBookCount();
+        const uint8_t bookCount = getAvailableBookCount();
         if (listState.selectedIndex == bookCount)
         {
             refresh();
@@ -287,6 +288,7 @@ void AddBooksPage::drawLoadingContent()
 void AddBooksPage::drawResultContent()
 {
     BookSync& sync = getBookSync();
+    const uint8_t availableBookCount = getAvailableBookCount();
     String details;
     Action actions[MAX_ACTION_COUNT];
     const char* labels[MAX_ACTION_COUNT];
@@ -294,8 +296,8 @@ void AddBooksPage::drawResultContent()
 
     if (syncResult == BookSyncResult::Success)
     {
-        details = sync.getBookCount();
-        details += sync.getBookCount() == 1
+        details = availableBookCount;
+        details += availableBookCount == 1
             ? " book available"
             : " books available";
     }
@@ -312,13 +314,13 @@ void AddBooksPage::drawResultContent()
         drawHeader("ADD BOOKS", batteryPercent);
         if (
             syncResult == BookSyncResult::Success &&
-            sync.getBookCount() > 0
+            availableBookCount > 0
         ) {
             const char* titles[MAX_CATALOG_ITEMS];
             getBookTitles(titles);
             drawSelectList(
                 titles,
-                sync.getBookCount(),
+                availableBookCount,
                 listState,
                 TWO_LINE_SELECT_LIST_WITH_BOTTOM_ACTIONS,
                 CATALOGUE_BOTTOM_ACTIONS
@@ -328,7 +330,7 @@ void AddBooksPage::drawResultContent()
         {
             drawMessage(
                 syncResult == BookSyncResult::Success
-                    ? "No books available"
+                    ? "All Books Downloaded"
                     : getBookSyncResultText(syncResult),
                 details.length() > 0 ? details.c_str() : nullptr,
                 labels,
@@ -367,18 +369,49 @@ void AddBooksPage::drawDownloadCompleteContent()
 
 void AddBooksPage::getBookTitles(const char** titles) const
 {
+    const uint8_t availableBookCount = getAvailableBookCount();
+    for (uint8_t index = 0; index < availableBookCount; index++)
+    {
+        const RemoteBook* book = getAvailableBook(index);
+        titles[index] = book == nullptr ? "" : book->title;
+    }
+}
+
+uint8_t AddBooksPage::getAvailableBookCount() const
+{
     BookSync& sync = getBookSync();
+    uint8_t availableCount = 0;
     for (uint8_t index = 0; index < sync.getBookCount(); index++)
     {
-        titles[index] = sync.getBook(index).title;
+        if (findCachedBook(sync.getBook(index).id) == nullptr)
+        {
+            availableCount++;
+        }
     }
+    return availableCount;
+}
+
+const RemoteBook* AddBooksPage::getAvailableBook(
+    uint8_t availableIndex
+) const {
+    BookSync& sync = getBookSync();
+    uint8_t currentAvailableIndex = 0;
+    for (uint8_t index = 0; index < sync.getBookCount(); index++)
+    {
+        const RemoteBook& book = sync.getBook(index);
+        if (findCachedBook(book.id) != nullptr) continue;
+        if (currentAvailableIndex == availableIndex) return &book;
+        currentAvailableIndex++;
+    }
+    return nullptr;
 }
 
 void AddBooksPage::downloadSelectedBook()
 {
     BookSync& sync = getBookSync();
-    if (listState.selectedIndex >= sync.getBookCount()) return;
-    const RemoteBook& book = sync.getBook(listState.selectedIndex);
+    const RemoteBook* selectedBook = getAvailableBook(listState.selectedIndex);
+    if (selectedBook == nullptr) return;
+    const RemoteBook& book = *selectedBook;
 
     setPageContentPartialWindow();
     display.firstPage();
