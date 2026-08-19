@@ -5,17 +5,22 @@
 #include <WiFiClientSecure.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <LittleFS.h>
 
-#include "books/BookServerConfig.h"
 #include "books/BookServerSettings.h"
 #include "wifi/WifiService.h"
 
 namespace
 {
     constexpr uint16_t REQUEST_TIMEOUT_MS = 8000;
+    constexpr uint16_t CLOCK_SYNC_TIMEOUT_MS = 8000;
+    constexpr time_t MINIMUM_VALID_TIME = 1704067200;
     constexpr char TEMPORARY_DOWNLOAD_PATH[] = "/book-download.tmp";
+
+    extern const uint8_t ESP_IDF_CA_BUNDLE[]
+        asm("_binary_x509_crt_bundle_start");
 
     bool copyField(
         char* destination,
@@ -43,6 +48,45 @@ namespace
         authorization += accessToken;
         request.addHeader("Authorization", authorization);
     }
+
+    bool ensureClockSynchronized()
+    {
+        if (time(nullptr) >= MINIMUM_VALID_TIME) return true;
+
+        Serial.println(F("[BookSync] Synchronising clock for HTTPS"));
+        configTime(0, 0, "pool.ntp.org", "time.cloudflare.com");
+        const unsigned long startedAt = millis();
+        while (
+            time(nullptr) < MINIMUM_VALID_TIME &&
+            millis() - startedAt < CLOCK_SYNC_TIMEOUT_MS
+        ) {
+            delay(100);
+        }
+
+        if (time(nullptr) >= MINIMUM_VALID_TIME) return true;
+        Serial.println(F("[BookSync] Clock synchronisation timed out"));
+        return false;
+    }
+
+    void configureTrustedTls(WiFiClientSecure& client)
+    {
+        client.setCACertBundle(ESP_IDF_CA_BUNDLE);
+    }
+
+    void logSecureConnectionFailure(WiFiClientSecure& client)
+    {
+        char error[128] = {};
+        const int errorCode = client.lastError(error, sizeof(error));
+        Serial.print(F("[BookSync] HTTPS connection failed: "));
+        Serial.print(errorCode);
+        if (error[0] != '\0')
+        {
+            Serial.print(F(" ("));
+            Serial.print(error);
+            Serial.print(')');
+        }
+        Serial.println();
+    }
 }
 
 BookSyncResult BookSync::fetchManifest()
@@ -60,10 +104,6 @@ BookSyncResult BookSync::fetchManifest()
 
     const String manifestUrl = configuredUrl;
     const bool usesTls = manifestUrl.startsWith("https://");
-    if (usesTls && BookServerConfig::ROOT_CA[0] == '\0')
-    {
-        return BookSyncResult::TlsConfigurationMissing;
-    }
     if (!usesTls && !manifestUrl.startsWith("http://"))
     {
         return BookSyncResult::NotConfigured;
@@ -74,7 +114,11 @@ BookSyncResult BookSync::fetchManifest()
     WiFiClient* client = &plainClient;
     if (usesTls)
     {
-        secureClient.setCACert(BookServerConfig::ROOT_CA);
+        if (!ensureClockSynchronized())
+        {
+            return BookSyncResult::ClockNotSynchronized;
+        }
+        configureTrustedTls(secureClient);
         client = &secureClient;
     }
 
@@ -91,8 +135,11 @@ BookSyncResult BookSync::fetchManifest()
     httpStatus = request.GET();
     if (httpStatus <= 0)
     {
+        if (usesTls) logSecureConnectionFailure(secureClient);
         request.end();
-        return BookSyncResult::RequestFailed;
+        return usesTls
+            ? BookSyncResult::SecureConnectionFailed
+            : BookSyncResult::RequestFailed;
     }
     if (httpStatus < 200 || httpStatus >= 300)
     {
@@ -135,10 +182,6 @@ BookDownloadResult BookSync::downloadBook(const RemoteBook& book)
         ? ""
         : book.downloadUrl;
     const bool usesTls = downloadUrl.startsWith("https://");
-    if (usesTls && BookServerConfig::ROOT_CA[0] == '\0')
-    {
-        return BookDownloadResult::TlsConfigurationMissing;
-    }
     if (!usesTls && !downloadUrl.startsWith("http://"))
     {
         return BookDownloadResult::RequestFailed;
@@ -149,7 +192,11 @@ BookDownloadResult BookSync::downloadBook(const RemoteBook& book)
     WiFiClient* client = &plainClient;
     if (usesTls)
     {
-        secureClient.setCACert(BookServerConfig::ROOT_CA);
+        if (!ensureClockSynchronized())
+        {
+            return BookDownloadResult::ClockNotSynchronized;
+        }
+        configureTrustedTls(secureClient);
         client = &secureClient;
     }
 
@@ -166,8 +213,11 @@ BookDownloadResult BookSync::downloadBook(const RemoteBook& book)
     httpStatus = request.GET();
     if (httpStatus <= 0)
     {
+        if (usesTls) logSecureConnectionFailure(secureClient);
         request.end();
-        return BookDownloadResult::RequestFailed;
+        return usesTls
+            ? BookDownloadResult::SecureConnectionFailed
+            : BookDownloadResult::RequestFailed;
     }
     if (httpStatus < 200 || httpStatus >= 300)
     {
@@ -324,7 +374,8 @@ const char* getBookSyncResultText(BookSyncResult result)
         case BookSyncResult::Success: return "Server manifest loaded";
         case BookSyncResult::NotConfigured: return "Book server not configured";
         case BookSyncResult::NotConnected: return "Connect to Wi-Fi first";
-        case BookSyncResult::TlsConfigurationMissing: return "Server certificate missing";
+        case BookSyncResult::ClockNotSynchronized: return "Could not verify server time";
+        case BookSyncResult::SecureConnectionFailed: return "Secure connection failed";
         case BookSyncResult::RequestFailed: return "Could not reach book server";
         case BookSyncResult::HttpError: return "Book server returned an error";
         case BookSyncResult::ManifestTooLarge: return "Server manifest is too large";
@@ -339,8 +390,10 @@ const char* getBookDownloadResultText(BookDownloadResult result)
     {
         case BookDownloadResult::Success: return "Download complete";
         case BookDownloadResult::NotConnected: return "Wi-Fi disconnected";
-        case BookDownloadResult::TlsConfigurationMissing:
-            return "Server certificate missing";
+        case BookDownloadResult::ClockNotSynchronized:
+            return "Could not verify server time";
+        case BookDownloadResult::SecureConnectionFailed:
+            return "Secure connection failed";
         case BookDownloadResult::RequestFailed: return "Download failed";
         case BookDownloadResult::HttpError: return "Book server returned an error";
         case BookDownloadResult::NotEnoughSpace: return "Not enough storage";
