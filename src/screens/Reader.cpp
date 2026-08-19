@@ -1,6 +1,7 @@
 #include "screens/Reader.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "Display.h"
 #include "Theme.h"
@@ -137,6 +138,23 @@ bool ReaderPage::open(
     }
 
     return true;
+}
+
+void ReaderPage::closeBook(const char* id)
+{
+    if (
+        currentBook == nullptr || id == nullptr ||
+        strcmp(currentBook->id, id) != 0
+    ) {
+        return;
+    }
+
+    flushCachedBookProgress();
+    paginator.clear();
+    currentDocument.close();
+    currentBook = nullptr;
+    currentPage = 0;
+    readerNeedsFullRefresh = true;
 }
 
 bool ReaderPage::movePreviousPage()

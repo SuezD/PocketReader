@@ -163,6 +163,47 @@ namespace
         savedPages[bookCount] = 0;
     }
 
+    void removeBookRecord(uint8_t removedIndex)
+    {
+        if (removedIndex >= bookCount) return;
+
+        for (uint8_t index = removedIndex; index + 1 < bookCount; index++)
+        {
+            memcpy(bookIds[index], bookIds[index + 1], sizeof(bookIds[index]));
+            memcpy(
+                bookTitleStorage[index],
+                bookTitleStorage[index + 1],
+                sizeof(bookTitleStorage[index])
+            );
+            memcpy(
+                bookPaths[index],
+                bookPaths[index + 1],
+                sizeof(bookPaths[index])
+            );
+            savedPages[index] = savedPages[index + 1];
+        }
+
+        if (currentBookIndex == removedIndex)
+        {
+            currentBookIndex = -1;
+        }
+        else if (currentBookIndex > removedIndex)
+        {
+            currentBookIndex--;
+        }
+
+        removeLastBookRecord();
+        for (uint8_t index = 0; index < bookCount; index++)
+        {
+            books[index] = {
+                bookIds[index],
+                bookTitleStorage[index],
+                bookPaths[index]
+            };
+            bookTitles[index] = books[index].title;
+        }
+    }
+
     bool addManifestBook(char* line)
     {
         char* firstSeparator = strchr(line, '\t');
@@ -583,6 +624,54 @@ const char* getBookInstallResultText(BookInstallResult result)
     return "Could not add book";
 }
 
+BookDeleteResult deleteCachedBook(const char* id)
+{
+    if (!fileSystemReady) return BookDeleteResult::StorageError;
+
+    const int bookIndex = getBookIndexById(id);
+    if (bookIndex < 0) return BookDeleteResult::NotFound;
+
+    char removedPath[MAX_BOOK_PATH_LENGTH + 1];
+    memcpy(
+        removedPath,
+        bookPaths[bookIndex],
+        sizeof(removedPath)
+    );
+
+    removeBookRecord(static_cast<uint8_t>(bookIndex));
+    if (!writeBookManifest())
+    {
+        loadBookManifest();
+        loadReadingProgress();
+        return BookDeleteResult::ManifestError;
+    }
+
+    progressDirty = true;
+    const bool progressSaved = flushCachedBookProgress();
+    const bool fileRemoved =
+        !littleFsFileExists(removedPath) || LittleFS.remove(removedPath);
+
+    Serial.print(F("Deleted cached book: "));
+    Serial.println(id);
+
+    if (!fileRemoved) return BookDeleteResult::StorageError;
+    if (!progressSaved) return BookDeleteResult::ProgressError;
+    return BookDeleteResult::Success;
+}
+
+const char* getBookDeleteResultText(BookDeleteResult result)
+{
+    switch (result)
+    {
+        case BookDeleteResult::Success: return "Book deleted";
+        case BookDeleteResult::NotFound: return "Book already removed";
+        case BookDeleteResult::StorageError: return "Book removed; file remains";
+        case BookDeleteResult::ManifestError: return "Could not update library";
+        case BookDeleteResult::ProgressError: return "Book removed; progress remains";
+    }
+    return "Could not delete book";
+}
+
 uint8_t getCachedBookCount()
 {
     return bookCount;
@@ -597,6 +686,12 @@ const CachedBook& getCachedBook(uint8_t index)
 {
     static const CachedBook EMPTY_BOOK = { "", "", "" };
     return index < bookCount ? books[index] : EMPTY_BOOK;
+}
+
+const CachedBook* findCachedBook(const char* id)
+{
+    const int index = getBookIndexById(id);
+    return index >= 0 ? &books[index] : nullptr;
 }
 
 uint16_t getCachedBookPage(const CachedBook& book)

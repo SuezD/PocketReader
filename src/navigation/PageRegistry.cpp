@@ -1,18 +1,23 @@
 #include "navigation/PageRegistry.h"
 
 #include "screens/AddBooks.h"
+#include "screens/BookPages.h"
 #include "screens/MainMenu.h"
 #include "screens/MyBooks.h"
 #include "screens/Reader.h"
 #include "screens/WifiSettings.h"
 #include "screens/WifiNetworkPages.h"
 #include "wifi/SelectedWifiNetwork.h"
+#include "books/SelectedCachedBook.h"
 
 namespace
 {
     MainMenuPage mainMenuPage;
     ReaderPage continueReadingPage;
-    MyBooksPage myBooksPage(continueReadingPage);
+    SelectedCachedBook selectedCachedBook;
+    MyBooksPage myBooksPage(selectedCachedBook);
+    BookActionsPage bookActionsPage(selectedCachedBook, continueReadingPage);
+    DeleteBookPage deleteBookPage(selectedCachedBook, continueReadingPage);
     AddBooksPage addBooksPage;
     SelectedWifiNetwork selectedWifiNetwork;
     WifiSettingsPage wiFiSettingsPage(selectedWifiNetwork);

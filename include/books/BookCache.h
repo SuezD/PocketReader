@@ -23,6 +23,15 @@ enum class BookInstallResult : uint8_t
     ManifestError
 };
 
+enum class BookDeleteResult : uint8_t
+{
+    Success,
+    NotFound,
+    StorageError,
+    ManifestError,
+    ProgressError
+};
+
 class ReaderDocument : public TextDocument
 {
 public:
@@ -55,10 +64,13 @@ BookInstallResult installCachedBook(
     const char* temporaryPath
 );
 const char* getBookInstallResultText(BookInstallResult result);
+BookDeleteResult deleteCachedBook(const char* id);
+const char* getBookDeleteResultText(BookDeleteResult result);
 
 uint8_t getCachedBookCount();
 const char* const* getCachedBookTitles();
 const CachedBook& getCachedBook(uint8_t index);
+const CachedBook* findCachedBook(const char* id);
 uint16_t getCachedBookPage(const CachedBook& book);
 void saveCachedBookPage(const CachedBook& book, uint16_t page);
 const CachedBook* getLastOpenedCachedBook();

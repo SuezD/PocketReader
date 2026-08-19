@@ -18,6 +18,7 @@ public:
         const CachedBook* book,
         uint16_t savedPage
     );
+    void closeBook(const char* id);
 
     void draw(uint8_t batteryPercent) override;
     bool handleInput(const InputState& input) override;

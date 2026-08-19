@@ -7,10 +7,9 @@
 #include "components/Header.h"
 #include "components/SelectList.h"
 #include "navigation/PageRegistry.h"
-#include "screens/Reader.h"
 
-MyBooksPage::MyBooksPage(ReaderPage& readerPage)
-    : readerPage(readerPage)
+MyBooksPage::MyBooksPage(SelectedCachedBook& nextSelectedBook)
+    : selectedBook(nextSelectedBook)
 {
 }
 
@@ -38,7 +37,7 @@ void MyBooksPage::draw(uint8_t batteryPercent)
                 nullptr,
                 options,
                 MY_BOOKS_EMPTY_OPTION_COUNT,
-                0
+                selectedEmptyOption
             );
         }
         else
@@ -51,13 +50,49 @@ void MyBooksPage::draw(uint8_t batteryPercent)
             );
         }
 
-        drawFooter();
+        drawFooter(selectedBook.getStatus());
     }
     while (display.nextPage());
 }
 
 bool MyBooksPage::handleInput(const InputState& input)
 {
+    if (getCachedBookCount() == 0)
+    {
+        const uint8_t previousIndex = selectedEmptyOption;
+
+        if (input.upPressed && !input.downPressed && selectedEmptyOption > 0)
+        {
+            selectedEmptyOption--;
+        }
+        else if (
+            input.downPressed && !input.upPressed &&
+            selectedEmptyOption + 1 < MY_BOOKS_EMPTY_OPTION_COUNT
+        ) {
+            selectedEmptyOption++;
+        }
+        else
+        {
+            return input.upPressed || input.downPressed;
+        }
+
+        const char* options[MAX_NAVIGATION_OPTIONS];
+        getNavigationOptionLabels(
+            MY_BOOKS_EMPTY_OPTIONS,
+            options,
+            MY_BOOKS_EMPTY_OPTION_COUNT
+        );
+        redrawMessageSelection(
+            "No Books Downloaded",
+            nullptr,
+            options,
+            MY_BOOKS_EMPTY_OPTION_COUNT,
+            previousIndex,
+            selectedEmptyOption
+        );
+        return true;
+    }
+
     const SelectListState previousState = listState;
 
     if (input.upPressed && !input.downPressed)
@@ -94,16 +129,9 @@ NavigationRequest MyBooksPage::select()
 {
     if (getCachedBookCount() == 0)
     {
-        return MY_BOOKS_EMPTY_OPTIONS[0];
+        return MY_BOOKS_EMPTY_OPTIONS[selectedEmptyOption];
     }
 
-    const CachedBook& book = getCachedBook(listState.selectedIndex);
-
-    if (!readerPage.open(&book, getCachedBookPage(book)))
-    {
-        Serial.println(F("Could not open selected book"));
-        return noNavigation();
-    }
-
-    return { NavigationMode::Push, PageId::ContinueReading };
+    selectedBook.select(getCachedBook(listState.selectedIndex));
+    return { NavigationMode::Push, PageId::BookActions };
 }
