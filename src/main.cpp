@@ -87,7 +87,7 @@ namespace
         return false;
     }
 
-    void navigateTo(PageId destination)
+    void pushPage(PageId destination)
     {
         if (!isRegistered(destination))
         {
@@ -117,7 +117,7 @@ namespace
         enterCurrentPage();
     }
 
-    void navigateHome(PageId destination)
+    void setHomePage(PageId destination)
     {
         if (!isRegistered(destination))
         {
@@ -130,7 +130,7 @@ namespace
         enterCurrentPage();
     }
 
-    void navigateBack()
+    void popPage()
     {
         if (pageStackSize <= 1)
         {
@@ -142,7 +142,7 @@ namespace
         enterCurrentPage();
     }
 
-    void navigateBackTo(PageId destination)
+    void popToPage(PageId destination)
     {
         exitCurrentPage();
         while (
@@ -163,19 +163,19 @@ namespace
         switch (request.mode)
         {
             case NavigationMode::Push:
-                navigateTo(request.destination);
+                pushPage(request.destination);
                 break;
             case NavigationMode::Replace:
                 replaceCurrentPage(request.destination);
                 break;
             case NavigationMode::Home:
-                navigateHome(request.destination);
+                setHomePage(request.destination);
                 break;
             case NavigationMode::Pop:
-                navigateBack();
+                popPage();
                 break;
             case NavigationMode::PopTo:
-                navigateBackTo(request.destination);
+                popToPage(request.destination);
                 break;
             case NavigationMode::None:
                 break;
@@ -199,7 +199,7 @@ namespace
         if (selectTapPending && now - firstSelectTapTime <= DOUBLE_TAP_MS)
         {
             selectTapPending = false;
-            navigateHome(PageId::MainMenu);
+            setHomePage(PageId::MainMenu);
             return;
         }
 

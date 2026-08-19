@@ -43,13 +43,13 @@ NavigationRequest WifiNetworkActionsPage::select()
     if (optionsPage.selectedIndex() == 0)
     {
         getWifiManager().connectSavedNetwork(selectedNetwork.getSsid());
-        return { NavigationMode::PopTo, PageId::WiFiSettings };
+        return navigateBackTo(PageId::WiFiSettings);
     }
     if (optionsPage.selectedIndex() == 1)
     {
-        return { NavigationMode::Push, PageId::WifiForgetNetwork };
+        return navigateTo(PageId::WifiForgetNetwork);
     }
-    return { NavigationMode::Pop, PageId::WiFiSettings };
+    return navigateBack();
 }
 
 WifiForgetNetworkPage::WifiForgetNetworkPage(
@@ -85,12 +85,12 @@ NavigationRequest WifiForgetNetworkPage::select()
 {
     if (optionsPage.selectedIndex() == 0)
     {
-        return { NavigationMode::Pop, PageId::WifiNetworkActions };
+        return navigateBack();
     }
 
     getWifiManager().forgetSavedNetwork(selectedNetwork.getSsid());
     selectedNetwork.select("");
-    return { NavigationMode::PopTo, PageId::WiFiSettings };
+    return navigateBackTo(PageId::WiFiSettings);
 }
 
 void WifiSetupPage::onEnter()
@@ -125,5 +125,5 @@ bool WifiSetupPage::handleInput(const InputState& input)
 
 NavigationRequest WifiSetupPage::select()
 {
-    return { NavigationMode::Pop, PageId::WiFiSettings };
+    return navigateBack();
 }

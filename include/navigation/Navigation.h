@@ -32,5 +32,30 @@ constexpr uint8_t MAX_NAVIGATION_OPTIONS = 8;
 
 constexpr NavigationRequest noNavigation()
 {
-    return { NavigationMode::None, PageId::MainMenu };
+    return { NavigationMode::None, PageId::Count };
+}
+
+constexpr NavigationRequest navigateTo(PageId destination)
+{
+    return { NavigationMode::Push, destination };
+}
+
+constexpr NavigationRequest replaceWith(PageId destination)
+{
+    return { NavigationMode::Replace, destination };
+}
+
+constexpr NavigationRequest navigateHome(PageId destination = PageId::MainMenu)
+{
+    return { NavigationMode::Home, destination };
+}
+
+constexpr NavigationRequest navigateBack()
+{
+    return { NavigationMode::Pop, PageId::Count };
+}
+
+constexpr NavigationRequest navigateBackTo(PageId destination)
+{
+    return { NavigationMode::PopTo, destination };
 }

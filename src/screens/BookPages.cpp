@@ -41,15 +41,15 @@ NavigationRequest BookActionsPage::select()
         if (book == nullptr || !readerPage.open(book, getCachedBookPage(*book)))
         {
             selectedBook.setStatus("Could not open book");
-            return { NavigationMode::PopTo, PageId::MyBooks };
+            return navigateBackTo(PageId::MyBooks);
         }
-        return { NavigationMode::Push, PageId::ContinueReading };
+        return navigateTo(PageId::ContinueReading);
     }
     if (optionsPage.selectedIndex() == 1)
     {
-        return { NavigationMode::Push, PageId::DeleteBook };
+        return navigateTo(PageId::DeleteBook);
     }
-    return { NavigationMode::Pop, PageId::MyBooks };
+    return navigateBack();
 }
 
 DeleteBookPage::DeleteBookPage(
@@ -80,7 +80,7 @@ NavigationRequest DeleteBookPage::select()
 {
     if (optionsPage.selectedIndex() == 0)
     {
-        return { NavigationMode::Pop, PageId::BookActions };
+        return navigateBack();
     }
 
     readerPage.closeBook(selectedBook.getId());
@@ -91,5 +91,5 @@ NavigationRequest DeleteBookPage::select()
         selectedBook.clear();
         selectedBook.setStatus(getBookDeleteResultText(result));
     }
-    return { NavigationMode::PopTo, PageId::MyBooks };
+    return navigateBackTo(PageId::MyBooks);
 }

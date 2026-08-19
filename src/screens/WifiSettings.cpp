@@ -61,13 +61,13 @@ NavigationRequest WifiSettingsPage::select()
     if (selectedIndex < networkCount)
     {
         selectedNetwork.select(wifi.getSavedNetworkName(selectedIndex));
-        return { NavigationMode::Push, PageId::WifiNetworkActions };
+        return navigateTo(PageId::WifiNetworkActions);
     }
     if (selectedIndex == networkCount)
     {
-        return { NavigationMode::Push, PageId::WifiSetup };
+        return navigateTo(PageId::WifiSetup);
     }
-    return { NavigationMode::Pop, PageId::MainMenu };
+    return navigateBack();
 }
 
 bool WifiSettingsPage::handleConnectivityStateChange(

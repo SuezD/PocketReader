@@ -161,7 +161,7 @@ NavigationRequest AddBooksPage::select()
                 drawResultContent();
                 return noNavigation();
             }
-            return { NavigationMode::Push, PageId::ContinueReading };
+            return navigateTo(PageId::ContinueReading);
         }
         if (selectedCompleteOption == 1)
         {
@@ -169,7 +169,7 @@ NavigationRequest AddBooksPage::select()
             drawResultContent();
             return noNavigation();
         }
-        return { NavigationMode::Home, PageId::MainMenu };
+        return navigateHome();
     }
 
     if (
@@ -184,7 +184,7 @@ NavigationRequest AddBooksPage::select()
         }
         if (listState.selectedIndex == bookCount + 1)
         {
-            return { NavigationMode::Pop, PageId::MainMenu };
+            return navigateBack();
         }
         downloadSelectedBook();
         return noNavigation();
@@ -208,7 +208,7 @@ NavigationRequest AddBooksPage::select()
         case Action::WifiSettings:
             return ADD_BOOKS_OFFLINE_OPTIONS[0];
         case Action::Back:
-            return { NavigationMode::Pop, PageId::MainMenu };
+            return navigateBack();
     }
 
     return noNavigation();

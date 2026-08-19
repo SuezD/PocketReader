@@ -134,11 +134,11 @@ NavigationRequest MyBooksPage::select()
 
     if (listState.selectedIndex >= getCachedBookCount())
     {
-        return { NavigationMode::Pop, PageId::MainMenu };
+        return navigateBack();
     }
 
     selectedBook.select(getCachedBook(listState.selectedIndex));
-    return { NavigationMode::Push, PageId::BookActions };
+    return navigateTo(PageId::BookActions);
 }
 
 uint8_t MyBooksPage::getItems(const char** items) const

@@ -33,34 +33,34 @@ namespace
 }
 
 const NavigationRequest MAIN_MENU_OPTIONS[] = {
-    { NavigationMode::Push, PageId::ContinueReading },
-    { NavigationMode::Push, PageId::MyBooks },
-    { NavigationMode::Push, PageId::AddBooks },
-    { NavigationMode::Push, PageId::WiFiSettings }
+    navigateTo(PageId::ContinueReading),
+    navigateTo(PageId::MyBooks),
+    navigateTo(PageId::AddBooks),
+    navigateTo(PageId::WiFiSettings)
 };
 
 const uint8_t MAIN_MENU_OPTION_COUNT =
     sizeof(MAIN_MENU_OPTIONS) / sizeof(MAIN_MENU_OPTIONS[0]);
 
 const NavigationRequest READER_EMPTY_OPTIONS[] = {
-    { NavigationMode::Home, PageId::MainMenu },
-    { NavigationMode::Replace, PageId::MyBooks },
-    { NavigationMode::Replace, PageId::AddBooks }
+    navigateHome(),
+    replaceWith(PageId::MyBooks),
+    replaceWith(PageId::AddBooks)
 };
 
 const uint8_t READER_EMPTY_OPTION_COUNT =
     sizeof(READER_EMPTY_OPTIONS) / sizeof(READER_EMPTY_OPTIONS[0]);
 
 const NavigationRequest MY_BOOKS_EMPTY_OPTIONS[] = {
-    { NavigationMode::Home, PageId::MainMenu },
-    { NavigationMode::Push, PageId::AddBooks }
+    navigateHome(),
+    navigateTo(PageId::AddBooks)
 };
 
 const uint8_t MY_BOOKS_EMPTY_OPTION_COUNT =
     sizeof(MY_BOOKS_EMPTY_OPTIONS) / sizeof(MY_BOOKS_EMPTY_OPTIONS[0]);
 
 const NavigationRequest ADD_BOOKS_OFFLINE_OPTIONS[] = {
-    { NavigationMode::Push, PageId::WiFiSettings }
+    navigateTo(PageId::WiFiSettings)
 };
 
 const uint8_t ADD_BOOKS_OFFLINE_OPTION_COUNT =
