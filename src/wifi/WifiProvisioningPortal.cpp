@@ -277,6 +277,10 @@ void WifiProvisioningPortal::handleBookServer()
         response,
         getBookServerSettings().getManifestUrl()
     );
+    response += ",\"hasAccessToken\":";
+    response += getBookServerSettings().hasAccessToken()
+        ? "true"
+        : "false";
     response += '}';
     server.send(200, "application/json", response);
 }
@@ -290,13 +294,17 @@ void WifiProvisioningPortal::handleSaveBookServer()
     }
 
     const String manifestUrl = server.arg("manifestUrl");
-    if (!getBookServerSettings().setManifestUrl(manifestUrl.c_str()))
+    const String accessToken = server.arg("accessToken");
+    if (!getBookServerSettings().save(
+        manifestUrl.c_str(),
+        accessToken.c_str()
+    ))
     {
-        Serial.println(F("[BookServer] Rejected invalid manifest URL"));
+        Serial.println(F("[BookServer] Rejected invalid server configuration"));
         server.send(
             400,
             "text/plain",
-            "Enter a valid http:// or https:// manifest URL"
+            "Enter a valid server URL and access token"
         );
         return;
     }

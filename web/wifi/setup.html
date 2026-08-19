@@ -12,6 +12,8 @@
   <form id="book-server-form">
     <label for="manifest-url">Manifest URL</label>
     <input id="manifest-url" name="manifestUrl" type="url" maxlength="255" required placeholder="http://192.168.1.120:8080/books.tsv">
+    <label for="access-token">Access Token (optional)</label>
+    <input id="access-token" name="accessToken" type="password" maxlength="255" autocomplete="new-password" placeholder="Leave blank for no access token">
     <button type="submit">Save Book Server</button>
     <p id="book-server-status"></p>
   </form>

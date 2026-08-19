@@ -71,6 +71,7 @@ loadNetworks();
 
 const bookServerForm = document.getElementById('book-server-form');
 const manifestUrl = document.getElementById('manifest-url');
+const accessToken = document.getElementById('access-token');
 const bookServerStatus = document.getElementById('book-server-status');
 
 async function loadBookServer() {
@@ -78,6 +79,9 @@ async function loadBookServer() {
     const response = await fetch('/book-server', { cache: 'no-store' });
     const result = await response.json();
     manifestUrl.value = result.manifestUrl || '';
+    accessToken.placeholder = result.hasAccessToken
+      ? 'Enter the token again to keep it'
+      : 'Leave blank for no access token';
   } catch (error) {
     bookServerStatus.textContent = 'Could not load the saved book server.';
   }
@@ -88,11 +92,19 @@ bookServerForm.addEventListener('submit', async (event) => {
   bookServerStatus.textContent = 'Saving...';
 
   try {
-    const body = new URLSearchParams({ manifestUrl: manifestUrl.value });
+    const body = new URLSearchParams({
+      manifestUrl: manifestUrl.value,
+      accessToken: accessToken.value
+    });
     const response = await fetch('/book-server', { method: 'POST', body });
     if (!response.ok) {
       throw new Error(await response.text());
     }
+    const tokenWasSaved = accessToken.value.length > 0;
+    accessToken.value = '';
+    accessToken.placeholder = tokenWasSaved
+      ? 'Enter the token again to keep it'
+      : 'Leave blank for no access token';
     bookServerStatus.textContent = 'Saved. Return to the reader.';
   } catch (error) {
     bookServerStatus.textContent = error.message || 'Could not save the book server.';

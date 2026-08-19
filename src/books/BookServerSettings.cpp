@@ -6,6 +6,7 @@ namespace
 {
     constexpr char PREFERENCES_NAMESPACE[] = "book-server";
     constexpr char MANIFEST_URL_KEY[] = "manifest-url";
+    constexpr char ACCESS_TOKEN_KEY[] = "access-token";
 }
 
 void BookServerSettings::begin()
@@ -30,6 +31,25 @@ void BookServerSettings::begin()
     {
         Serial.println(F("[BookServer] Ignored invalid saved manifest URL"));
     }
+
+    const String savedAccessToken = preferences.getString(ACCESS_TOKEN_KEY, "");
+    if (isValidAccessToken(savedAccessToken.c_str()))
+    {
+        snprintf(
+            accessToken,
+            sizeof(accessToken),
+            "%s",
+            savedAccessToken.c_str()
+        );
+        if (accessToken[0] != '\0')
+        {
+            Serial.println(F("[BookServer] Loaded saved access token"));
+        }
+    }
+    else
+    {
+        Serial.println(F("[BookServer] Ignored invalid saved access token"));
+    }
 }
 
 const char* BookServerSettings::getManifestUrl() const
@@ -37,16 +57,57 @@ const char* BookServerSettings::getManifestUrl() const
     return manifestUrl;
 }
 
-bool BookServerSettings::setManifestUrl(const char* url)
+const char* BookServerSettings::getAccessToken() const
 {
-    if (!ready || !isValidUrl(url)) return false;
-    if (strcmp(manifestUrl, url) == 0) return true;
+    return accessToken;
+}
 
-    if (preferences.putString(MANIFEST_URL_KEY, url) == 0) return false;
-    snprintf(manifestUrl, sizeof(manifestUrl), "%s", url);
+bool BookServerSettings::hasAccessToken() const
+{
+    return accessToken[0] != '\0';
+}
+
+bool BookServerSettings::save(
+    const char* url,
+    const char* nextAccessToken
+) {
+    if (
+        !ready || !isValidUrl(url) ||
+        !isValidAccessToken(nextAccessToken)
+    ) {
+        return false;
+    }
+
+    const bool urlChanged = strcmp(manifestUrl, url) != 0;
+    const bool tokenChanged = strcmp(accessToken, nextAccessToken) != 0;
+    if (!urlChanged && !tokenChanged) return true;
+
+    if (tokenChanged)
+    {
+        if (nextAccessToken[0] == '\0')
+        {
+            if (!preferences.remove(ACCESS_TOKEN_KEY)) return false;
+        }
+        else if (
+            preferences.putString(ACCESS_TOKEN_KEY, nextAccessToken) == 0
+        ) {
+            return false;
+        }
+    }
+
+    if (
+        urlChanged && preferences.putString(MANIFEST_URL_KEY, url) == 0
+    ) {
+        return false;
+    }
+
+    if (urlChanged) snprintf(manifestUrl, sizeof(manifestUrl), "%s", url);
+    if (tokenChanged)
+    {
+        snprintf(accessToken, sizeof(accessToken), "%s", nextAccessToken);
+    }
     revision++;
-    Serial.print(F("[BookServer] Saved manifest URL: "));
-    Serial.println(manifestUrl);
+    Serial.println(F("[BookServer] Saved server configuration"));
     return true;
 }
 
@@ -70,6 +131,18 @@ bool BookServerSettings::isValidUrl(const char* url) const
     for (size_t index = 0; index < length; index++)
     {
         if (static_cast<uint8_t>(url[index]) <= 0x20) return false;
+    }
+    return true;
+}
+
+bool BookServerSettings::isValidAccessToken(const char* token) const
+{
+    if (token == nullptr) return false;
+    const size_t length = strlen(token);
+    if (length > MAX_ACCESS_TOKEN_LENGTH) return false;
+    for (size_t index = 0; index < length; index++)
+    {
+        if (static_cast<uint8_t>(token[index]) <= 0x20) return false;
     }
     return true;
 }

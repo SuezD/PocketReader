@@ -33,6 +33,16 @@ namespace
         return strncmp(value, "http://", 7) == 0 ||
             strncmp(value, "https://", 8) == 0;
     }
+
+    void addAuthorizationHeader(HTTPClient& request)
+    {
+        const char* accessToken = getBookServerSettings().getAccessToken();
+        if (accessToken[0] == '\0') return;
+
+        String authorization = "Bearer ";
+        authorization += accessToken;
+        request.addHeader("Authorization", authorization);
+    }
 }
 
 BookSyncResult BookSync::fetchManifest()
@@ -76,6 +86,7 @@ BookSyncResult BookSync::fetchManifest()
     {
         return BookSyncResult::RequestFailed;
     }
+    addAuthorizationHeader(request);
 
     httpStatus = request.GET();
     if (httpStatus <= 0)
@@ -150,6 +161,7 @@ BookDownloadResult BookSync::downloadBook(const RemoteBook& book)
     {
         return BookDownloadResult::RequestFailed;
     }
+    addAuthorizationHeader(request);
 
     httpStatus = request.GET();
     if (httpStatus <= 0)
