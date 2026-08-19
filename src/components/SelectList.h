@@ -8,6 +8,18 @@ struct SelectListState
     uint8_t firstVisibleIndex = 0;
 };
 
+struct SelectListConfig
+{
+    constexpr SelectListConfig(uint8_t nextTextLineCount = 1)
+        : textLineCount(nextTextLineCount)
+    {
+    }
+
+    uint8_t textLineCount;
+};
+
+constexpr SelectListConfig TWO_LINE_SELECT_LIST(2);
+
 void resetSelectList(SelectListState& state);
 
 void moveSelectListUp(
@@ -23,12 +35,14 @@ void moveSelectListDown(
 void drawSelectList(
     const char* const items[],
     uint8_t itemCount,
-    SelectListState& state
+    SelectListState& state,
+    SelectListConfig config = SelectListConfig()
 );
 
 void redrawSelectListAfterMove(
     const char* const items[],
     uint8_t itemCount,
     const SelectListState& previousState,
-    SelectListState& state
+    SelectListState& state,
+    SelectListConfig config = SelectListConfig()
 );

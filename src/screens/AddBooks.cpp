@@ -7,6 +7,7 @@
 #include "components/Footer.h"
 #include "components/Header.h"
 #include "components/PageContent.h"
+#include "components/SelectList.h"
 #include "navigation/PageRegistry.h"
 
 void AddBooksPage::draw(uint8_t nextBatteryPercent)
@@ -29,6 +30,43 @@ void AddBooksPage::draw(uint8_t nextBatteryPercent)
 
 bool AddBooksPage::handleInput(const InputState& input)
 {
+    BookSync& sync = getBookSync();
+    if (
+        syncResult == BookSyncResult::Success &&
+        sync.getBookCount() > 0
+    ) {
+        const SelectListState previousState = listState;
+        if (input.upPressed && !input.downPressed)
+        {
+            moveSelectListUp(
+                listState,
+                sync.getBookCount()
+            );
+        }
+        else if (input.downPressed && !input.upPressed)
+        {
+            moveSelectListDown(
+                listState,
+                sync.getBookCount()
+            );
+        }
+        else
+        {
+            return false;
+        }
+
+        const char* titles[MAX_CATALOG_BOOKS];
+        getBookTitles(titles);
+        redrawSelectListAfterMove(
+            titles,
+            sync.getBookCount(),
+            previousState,
+            listState,
+            TWO_LINE_SELECT_LIST
+        );
+        return true;
+    }
+
     return input.upPressed || input.downPressed;
 }
 
@@ -85,6 +123,14 @@ void AddBooksPage::refresh()
 void AddBooksPage::fetchAndRenderResult()
 {
     syncResult = getBookSync().fetchManifest();
+    Serial.print(F("[BookSync] Result: "));
+    Serial.print(static_cast<uint8_t>(syncResult));
+    Serial.print(F(", remote books: "));
+    Serial.println(getBookSync().getBookCount());
+    if (syncResult == BookSyncResult::Success)
+    {
+        resetSelectList(listState);
+    }
     drawResultContent();
 }
 
@@ -120,18 +166,47 @@ void AddBooksPage::drawResultContent()
         details = "HTTP ";
         details += sync.getHttpStatus();
     }
-    setPageContentPartialWindow();
+    display.setFullWindow();
     display.firstPage();
     do
     {
-        clearPageContent();
-        drawMessage(
-            getBookSyncResultText(syncResult),
-            details.length() > 0 ? details.c_str() : nullptr,
-            labels,
-            actionCount,
-            0
-        );
+        display.fillScreen(Theme::BACKGROUND_COLOR);
+        drawHeader("ADD BOOKS", batteryPercent);
+        if (
+            syncResult == BookSyncResult::Success &&
+            sync.getBookCount() > 0
+        ) {
+            const char* titles[MAX_CATALOG_BOOKS];
+            getBookTitles(titles);
+            drawSelectList(
+                titles,
+                sync.getBookCount(),
+                listState,
+                TWO_LINE_SELECT_LIST
+            );
+        }
+        else
+        {
+            drawMessage(
+                syncResult == BookSyncResult::Success
+                    ? "No books available"
+                    : getBookSyncResultText(syncResult),
+                details.length() > 0 ? details.c_str() : nullptr,
+                labels,
+                actionCount,
+                0
+            );
+        }
+        drawFooter();
     }
     while (display.nextPage());
+}
+
+void AddBooksPage::getBookTitles(const char** titles) const
+{
+    BookSync& sync = getBookSync();
+    for (uint8_t index = 0; index < sync.getBookCount(); index++)
+    {
+        titles[index] = sync.getBook(index).title;
+    }
 }

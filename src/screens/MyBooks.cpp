@@ -46,7 +46,8 @@ void MyBooksPage::draw(uint8_t batteryPercent)
             drawSelectList(
                 getCachedBookTitles(),
                 getCachedBookCount(),
-                listState
+                listState,
+                TWO_LINE_SELECT_LIST
             );
         }
 
@@ -61,11 +62,17 @@ bool MyBooksPage::handleInput(const InputState& input)
 
     if (input.upPressed && !input.downPressed)
     {
-        moveSelectListUp(listState, getCachedBookCount());
+        moveSelectListUp(
+            listState,
+            getCachedBookCount()
+        );
     }
     else if (input.downPressed && !input.upPressed)
     {
-        moveSelectListDown(listState, getCachedBookCount());
+        moveSelectListDown(
+            listState,
+            getCachedBookCount()
+        );
     }
     else
     {
@@ -76,7 +83,8 @@ bool MyBooksPage::handleInput(const InputState& input)
         getCachedBookTitles(),
         getCachedBookCount(),
         previousState,
-        listState
+        listState,
+        TWO_LINE_SELECT_LIST
     );
 
     return true;
