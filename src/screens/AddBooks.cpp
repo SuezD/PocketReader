@@ -333,12 +333,13 @@ void AddBooksPage::fetchAndRenderResult()
 
 void AddBooksPage::drawLoadingContent()
 {
-    setPageContentPartialWindow();
+    setPageBodyPartialWindow();
     display.firstPage();
     do
     {
-        clearPageContent();
+        clearPageBody();
         drawMessage("Fetching book catalogue...");
+        drawFooter();
     }
     while (display.nextPage());
 }
@@ -364,12 +365,11 @@ void AddBooksPage::drawResultContent()
         details = "HTTP ";
         details += sync.getHttpStatus();
     }
-    display.setFullWindow();
+    setPageBodyPartialWindow();
     display.firstPage();
     do
     {
-        display.fillScreen(Theme::BACKGROUND_COLOR);
-        drawHeader("ADD BOOKS", batteryPercent);
+        clearPageBody();
         if (
             state == State::Catalogue &&
             availableBookCount > 0
@@ -407,12 +407,11 @@ void AddBooksPage::drawResultContent()
 
 void AddBooksPage::drawDownloadCompleteContent()
 {
-    display.setFullWindow();
+    setPageBodyPartialWindow();
     display.firstPage();
     do
     {
-        display.fillScreen(Theme::BACKGROUND_COLOR);
-        drawHeader("ADD BOOKS", batteryPercent);
+        clearPageBody();
         drawMessage(
             "Download complete",
             completedBookTitle.c_str(),
@@ -430,12 +429,11 @@ void AddBooksPage::drawDownloadFailedContent()
     FailureAction actions[MAX_FAILURE_OPTION_COUNT];
     const char* labels[MAX_FAILURE_OPTION_COUNT];
     const uint8_t optionCount = getFailureOptions(actions, labels);
-    display.setFullWindow();
+    setPageBodyPartialWindow();
     display.firstPage();
     do
     {
-        display.fillScreen(Theme::BACKGROUND_COLOR);
-        drawHeader("ADD BOOKS", batteryPercent);
+        clearPageBody();
         drawMessage(
             downloadFailureMessage.c_str(),
             completedBookTitle.c_str(),
@@ -527,12 +525,13 @@ void AddBooksPage::downloadSelectedBook()
     const RemoteBook& book = *selectedBook;
     state = State::Downloading;
 
-    setPageContentPartialWindow();
+    setPageBodyPartialWindow();
     display.firstPage();
     do
     {
-        clearPageContent();
+        clearPageBody();
         drawMessage("Downloading", book.title);
+        drawFooter();
     }
     while (display.nextPage());
 

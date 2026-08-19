@@ -52,3 +52,26 @@ void clearPageContent()
         Theme::BORDER_COLOR
     );
 }
+
+void setPageBodyPartialWindow()
+{
+    display.setPartialWindow(
+        0,
+        Theme::HEADER_HEIGHT,
+        display.width(),
+        display.height() - Theme::HEADER_HEIGHT
+    );
+}
+
+void clearPageBody()
+{
+    clearPageContent();
+    const int footerTop = getFooterTop();
+    display.fillRect(
+        0,
+        footerTop + 1,
+        display.width(),
+        display.height() - footerTop - 1,
+        Theme::BACKGROUND_COLOR
+    );
+}

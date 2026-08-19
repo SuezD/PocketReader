@@ -288,12 +288,7 @@ void ReaderPage::draw(uint8_t batteryPercent)
     }
     else
     {
-        display.setPartialWindow(
-            0,
-            Theme::HEADER_HEIGHT,
-            display.width(),
-            display.height() - Theme::HEADER_HEIGHT
-        );
+        setPageBodyPartialWindow();
     }
 
     display.firstPage();
@@ -306,14 +301,7 @@ void ReaderPage::draw(uint8_t batteryPercent)
         }
         else
         {
-            clearPageContent();
-            display.fillRect(
-                0,
-                display.height() - Theme::FOOTER_HEIGHT + 1,
-                display.width(),
-                Theme::FOOTER_HEIGHT - 1,
-                Theme::BACKGROUND_COLOR
-            );
+            clearPageBody();
         }
 
         if (currentBook == nullptr || !hasOpenDocument())
